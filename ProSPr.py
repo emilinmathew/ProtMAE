@@ -15,7 +15,7 @@ def evaluate_prospr_model():
     os.makedirs(output_dir, exist_ok=True)
     
     # Load pre-trained ProSPr model
-    model = ProSPrModel.load_pretrained().to(device)
+    model = ProSPrModel.load_pretrained().to(device)  # Ensure the model is loaded correctly
     model.eval()
     
     # Get dataloaders
