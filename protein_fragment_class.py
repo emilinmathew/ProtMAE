@@ -60,42 +60,46 @@ class ProteinFragmentDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, idx):
-        """
-        Args:
-            idx (int): Index
-            
-        Returns:
-            dict: A dictionary containing:
-                'distance_map': The original distance map
-        """
-        # Load the .npz file
-        file_path = self.files[idx]
-        data = np.load(file_path)
+    """
+    Args:
+        idx (int): Index
+        
+    Returns:
+        dict: A dictionary containing:
+            'distance_map': The original distance map
+    """
+    # Load the .npz file
+    file_path = self.files[idx]
+    data = np.load(file_path)
 
-        # Extract distance map
-        distance_map = data['distance_map'].astype(np.float32)
+    # Extract distance map
+    distance_map = data['distance_map'].astype(np.float32)
 
-        # Add channel dimension if missing
-        if len(distance_map.shape) == 2:
-            distance_map = distance_map[np.newaxis, :, :]
+    # Normalize the distance map to [0, 1]
+    distance_map = (distance_map - distance_map.min()) / (distance_map.max() - distance_map.min())
 
-        # Convert to torch tensor
-        distance_map = torch.from_numpy(distance_map)
+    # Add channel dimension if missing
+    if len(distance_map.shape) == 2:
+        distance_map = distance_map[np.newaxis, :, :]
 
-        # Apply transforms if specified
-        if self.transform:
-            distance_map = self.transform(distance_map)
+    # Convert to torch tensor
+    distance_map = torch.from_numpy(distance_map)
 
-        # Extract PDB ID from the filename
-        pdb_id = Path(file_path).stem.split('_')[1]
+    # Apply transforms if specified
+    if self.transform:
+        distance_map = self.transform(distance_map)
 
-        # Create sample dictionary
-        sample = {
-            'distance_map': distance_map,
-            'pdb_id': pdb_id
-        }
+    # Extract PDB ID from the filename
+    pdb_id = Path(file_path).stem.split('_')[1]
 
-        return sample
+    # Create sample dictionary
+    sample = {
+        'distance_map': distance_map,
+        'pdb_id': pdb_id
+    }
+
+    return sample
+
 
     def visualize_random_samples(self, num_samples=5):
         """
