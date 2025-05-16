@@ -15,7 +15,6 @@ astor==0.8.1
 biopython==1.79
 cached-property==1.5.1
 certifi==2020.12.5
-dssp==3.0.0
 gast==0.4.0
 google-pasta==0.2.0
 grpcio==1.34.1
