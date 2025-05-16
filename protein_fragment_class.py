@@ -2,7 +2,7 @@
 # Dataset loader for protein fragment distance maps
 
 import os
-
+from pathlib import Path
 import torch
 import numpy as np
 import pandas as pd
