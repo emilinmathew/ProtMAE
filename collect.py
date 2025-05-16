@@ -14,7 +14,7 @@ from Bio.PDB.Polypeptide import is_aa
 from skimage.transform import resize
 
 # ========== CONFIG ==========
-NUM_PROTEINS = 10000
+NUM_PROTEINS = 40000
 BATCH_SIZE = 500
 DOWNLOAD_WORKERS = min(64, mp.cpu_count() * 4)
 PROCESS_WORKERS = mp.cpu_count()
@@ -38,6 +38,12 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+def get_processed_proteins():
+    """Get a set of already processed protein IDs from MAPS_DIR."""
+    processed_files = Path(MAPS_DIR).glob("map_*.npz")
+    processed_ids = {file.stem.split('_')[1] for file in processed_files}
+    return processed_ids
 
 
 def load_structure(pdb_file, pdb_id):
@@ -148,21 +154,29 @@ def process_protein(pdb_file):
         return None
 
 async def main():
-    os.makedirs(TEMP_DIR, exist_ok=True)  # Use TEMP_DIR consistently
-    os.makedirs(MAPS_DIR, exist_ok=True)   # Use MAPS_DIR consistently
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    os.makedirs(MAPS_DIR, exist_ok=True)
     total_size = 0
     successful_maps = 0
-    
+
     try:
         # Get PDB IDs asynchronously
         async with aiohttp.ClientSession() as session:
             async with session.get(PDB_INDEX_URL) as response:
                 content = await response.text()
-        
+
         # Parse PDB IDs
         all_pdb_ids = [line.split()[0] for line in content.split('\n')[2:] if line.strip()]
-        selected_ids = np.random.choice(all_pdb_ids, NUM_PROTEINS, replace=False)
-        
+
+        # Get already processed protein IDs
+        processed_ids = get_processed_proteins()
+
+        # Filter out already processed IDs
+        remaining_ids = [pdb_id for pdb_id in all_pdb_ids if pdb_id not in processed_ids]
+
+        # Select new proteins to process
+        selected_ids = np.random.choice(remaining_ids, NUM_PROTEINS, replace=False)
+
         # Process in batches
         for i in tqdm(range(0, len(selected_ids), BATCH_SIZE), desc="Processing batches"):
             batch_ids = selected_ids[i:i + BATCH_SIZE]
@@ -206,7 +220,8 @@ async def main():
         # Clean up temporary files
         cleanup_temp_files()
         logger.info(f"Final results: {successful_maps} maps processed. Total storage: {total_size / (1024*1024*1024):.2f} GB")
-
+     
+     
 if __name__ == "__main__":
     try:
         import resource
