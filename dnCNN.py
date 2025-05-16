@@ -62,6 +62,10 @@ def evaluate_dncnn_model():
             distance_maps = batch['distance_map'].to(device)
             reconstructions = model(distance_maps)
             
+            # Debugging: Print statistics for distance maps and reconstructions
+            print("Distance Maps:", distance_maps.min().item(), distance_maps.max().item(), distance_maps.mean().item())
+            print("Reconstructions:", reconstructions.min().item(), reconstructions.max().item(), reconstructions.mean().item())
+            
             # Compute MSE loss
             mse_loss = mse_criterion(reconstructions, distance_maps)
             test_mse_losses.append(mse_loss.item())
