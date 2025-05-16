@@ -4,7 +4,7 @@ from protein_fragment_class import get_dataloaders
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
-from torchmetrics.functional import structural_similarity_index_measure as ssim
+from torchmetrics.functional import structural_similarity_index_measure as ssim  # Import SSIM from torchmetrics
 
 
 class DnCNN(nn.Module):
@@ -50,7 +50,6 @@ def evaluate_dncnn_model():
     
     # Evaluation metrics
     mse_criterion = nn.MSELoss()
-    ssim_criterion = pytorch_ssim.SSIM()  # SSIM loss
     
     # Evaluate on test set
     model.eval()
@@ -68,7 +67,7 @@ def evaluate_dncnn_model():
             test_mse_losses.append(mse_loss.item())
             
             # Compute SSIM loss
-            ssim_loss = 1 - ssim(reconstructions, distance_maps)
+            ssim_loss = 1 - ssim(reconstructions, distance_maps)  # SSIM returns similarity, so subtract from 1
             test_ssim_losses.append(ssim_loss.item())
     
     avg_mse_loss = sum(test_mse_losses) / len(test_mse_losses)
@@ -77,11 +76,11 @@ def evaluate_dncnn_model():
     print(f"Average Test SSIM Loss: {avg_ssim_loss:.4f}")
     
     # Visualize some reconstructions
-    visualize_reconstructions(model, dataloaders['test'], device, output_dir, mse_criterion, ssim_criterion)
+    visualize_reconstructions(model, dataloaders['test'], device, output_dir, mse_criterion)
     
     return avg_mse_loss, avg_ssim_loss
 
-def visualize_reconstructions(model, dataloader, device, output_dir, mse_criterion, ssim_criterion, num_samples=5):
+def visualize_reconstructions(model, dataloader, device, output_dir, mse_criterion, num_samples=5):
     """Visualize original and reconstructed distance maps with MSE and SSIM loss"""
     
     model.eval()
@@ -91,7 +90,7 @@ def visualize_reconstructions(model, dataloader, device, output_dir, mse_criteri
     with torch.no_grad():
         reconstructions = model(distance_maps)
         mse_losses = [mse_criterion(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
-        ssim_losses = [1 - ssim_criterion(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
+        ssim_losses = [1 - ssim(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
     
     # Create visualization
     fig, axes = plt.subplots(num_samples, 2, figsize=(8, 2*num_samples))
