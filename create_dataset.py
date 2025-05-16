@@ -1,4 +1,4 @@
-from prepare_dataset import get_dataloaders
+from protein_fragment_class import get_dataloaders
 
 # Directory containing .npz files
 root_dir = "./distance_maps"
