@@ -4,7 +4,8 @@ from protein_fragment_class import get_dataloaders
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
-import pytorch_ssim  # Import SSIM loss
+from torchmetrics.functional import structural_similarity_index_measure as ssim
+
 
 class DnCNN(nn.Module):
     def __init__(self, in_channels=1, num_layers=17, num_features=64):
@@ -67,7 +68,7 @@ def evaluate_dncnn_model():
             test_mse_losses.append(mse_loss.item())
             
             # Compute SSIM loss
-            ssim_loss = 1 - ssim_criterion(reconstructions, distance_maps)  # SSIM returns similarity, so subtract from 1
+            ssim_loss = 1 - ssim(reconstructions, distance_maps)
             test_ssim_losses.append(ssim_loss.item())
     
     avg_mse_loss = sum(test_mse_losses) / len(test_mse_losses)
