@@ -72,6 +72,7 @@ def evaluate_dncnn_model():
 def visualize_reconstructions(model, dataloader, device, output_dir, criterion, num_samples=5):
     """Visualize original and reconstructed distance maps with MSE loss"""
     
+    
     model.eval()
     batch = next(iter(dataloader))
     distance_maps = batch['distance_map'].to(device)[:num_samples]
