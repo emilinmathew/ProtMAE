@@ -4,6 +4,7 @@ from protein_fragment_class import get_dataloaders
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
+import pytorch_ssim  # Import SSIM loss
 
 class DnCNN(nn.Module):
     def __init__(self, in_channels=1, num_layers=17, num_features=64):
@@ -47,31 +48,40 @@ def evaluate_dncnn_model():
     )
     
     # Evaluation metrics
-    criterion = nn.MSELoss()
+    mse_criterion = nn.MSELoss()
+    ssim_criterion = pytorch_ssim.SSIM()  # SSIM loss
     
     # Evaluate on test set
     model.eval()
-    test_losses = []
+    test_mse_losses = []
+    test_ssim_losses = []
     
     print("Evaluating DnCNN model...")
     with torch.no_grad():
         for batch in tqdm(dataloaders['test']):
             distance_maps = batch['distance_map'].to(device)
             reconstructions = model(distance_maps)
-            loss = criterion(reconstructions, distance_maps)
-            test_losses.append(loss.item())
+            
+            # Compute MSE loss
+            mse_loss = mse_criterion(reconstructions, distance_maps)
+            test_mse_losses.append(mse_loss.item())
+            
+            # Compute SSIM loss
+            ssim_loss = 1 - ssim_criterion(reconstructions, distance_maps)  # SSIM returns similarity, so subtract from 1
+            test_ssim_losses.append(ssim_loss.item())
     
-    avg_test_loss = sum(test_losses) / len(test_losses)
-    print(f"Average Test Loss: {avg_test_loss:.4f}")
+    avg_mse_loss = sum(test_mse_losses) / len(test_mse_losses)
+    avg_ssim_loss = sum(test_ssim_losses) / len(test_ssim_losses)
+    print(f"Average Test MSE Loss: {avg_mse_loss:.4f}")
+    print(f"Average Test SSIM Loss: {avg_ssim_loss:.4f}")
     
     # Visualize some reconstructions
-    visualize_reconstructions(model, dataloaders['test'], device, output_dir, criterion)
+    visualize_reconstructions(model, dataloaders['test'], device, output_dir, mse_criterion, ssim_criterion)
     
-    return avg_test_loss
+    return avg_mse_loss, avg_ssim_loss
 
-def visualize_reconstructions(model, dataloader, device, output_dir, criterion, num_samples=5):
-    """Visualize original and reconstructed distance maps with MSE loss"""
-    
+def visualize_reconstructions(model, dataloader, device, output_dir, mse_criterion, ssim_criterion, num_samples=5):
+    """Visualize original and reconstructed distance maps with MSE and SSIM loss"""
     
     model.eval()
     batch = next(iter(dataloader))
@@ -79,7 +89,8 @@ def visualize_reconstructions(model, dataloader, device, output_dir, criterion, 
     
     with torch.no_grad():
         reconstructions = model(distance_maps)
-        losses = [criterion(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
+        mse_losses = [mse_criterion(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
+        ssim_losses = [1 - ssim_criterion(reconstructions[i:i+1], distance_maps[i:i+1]).item() for i in range(num_samples)]
     
     # Create visualization
     fig, axes = plt.subplots(num_samples, 2, figsize=(8, 2*num_samples))
@@ -92,7 +103,7 @@ def visualize_reconstructions(model, dataloader, device, output_dir, criterion, 
         
         # Reconstruction
         axes[i, 1].imshow(reconstructions[i, 0].cpu(), cmap='viridis')
-        axes[i, 1].set_title(f'Reconstructed (MSE: {losses[i]:.4f})')
+        axes[i, 1].set_title(f'Reconstructed\nMSE: {mse_losses[i]:.4f}, SSIM: {1 - ssim_losses[i]:.4f}')
         axes[i, 1].axis('off')
     
     plt.tight_layout()
