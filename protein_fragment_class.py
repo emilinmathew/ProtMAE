@@ -11,7 +11,6 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 num_workers = os.cpu_count()
-
 class ProteinFragmentDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None, visualize_samples=False, split_ratios=(0.8, 0.1, 0.1), split_files=None):
         """
@@ -28,7 +27,7 @@ class ProteinFragmentDataset(Dataset):
         self.transform = transform
         self.visualize_samples = visualize_samples
 
-        if split_files and split in split_files:
+        if split_files and all(Path(split_files[s]).exists() for s in ['train', 'val', 'test']):
             # Load split from file
             with open(split_files[split], 'r') as f:
                 self.files = [line.strip() for line in f.readlines()]
@@ -49,14 +48,14 @@ class ProteinFragmentDataset(Dataset):
             else:
                 raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'.")
 
-            # Save splits to disk if not already saved
+            # Save splits to disk if split_files is provided
             if split_files:
+                Path(split_files['train']).parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
                 for split_name, split_files_list in zip(['train', 'val', 'test'], [train_files, val_files, test_files]):
                     with open(split_files[split_name], 'w') as f:
                         f.writelines(f"{file}\n" for file in split_files_list)
 
         print(f"Found {len(self.files)} samples for {split} split")
-
     def __len__(self):
         return len(self.files)
 
