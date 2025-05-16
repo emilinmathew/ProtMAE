@@ -12,7 +12,7 @@ if __name__ == "__main__":
     }
 
     # Create dataloaders
-    dataloaders = get_dataloaders(root_dir, batch_size=32, num_workers=4, visualize_samples=True, split_files=split_files)
+    dataloaders = get_dataloaders(root_dir, batch_size=100, num_workers=4, visualize_samples=True, split_files=split_files)
 
     # Access train, val, and test dataloaders
     train_loader = dataloaders['train']

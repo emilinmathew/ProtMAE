@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import timm
-from dataset import get_dataloaders
+from protein_fragment_class import get_dataloaders
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
@@ -53,8 +53,8 @@ def evaluate_pretrained_model():
     
     # Get dataloaders
     dataloaders = get_dataloaders(
-        './protein_fragment_dataset',
-        batch_size=32,
+        './distance_maps',
+        batch_size=100,
         num_workers=4
     )
     
