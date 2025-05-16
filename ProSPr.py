@@ -1,11 +1,16 @@
-from prospr.nn import load_model
+from prospr.nn import ProsprNetwork, load_model
 
 # Load the pre-trained ProSPr model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = load_model().to(device)
+model = ProsprNetwork().to(device)  # Initialize the ProSPr model
+
+# Path to the pre-trained weights file
+weights_path = './prospr/pretrained_weights.pth'  # Replace with the actual path to the weights file
+
+# Load the weights into the model
+load_model(model, weights_path)
 model.eval()  # Set the model to evaluation mode
 print("ProSPr model loaded successfully.")
-
 
 from prospr.dataloader import get_tensors
 
