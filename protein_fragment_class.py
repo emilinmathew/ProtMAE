@@ -11,8 +11,9 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 num_workers = os.cpu_count()
+
 class ProteinFragmentDataset(Dataset):
-    def __init__(self, root_dir, split='train', transform=None, visualize_samples=False, split_ratios=(0.8, 0.1, 0.1)):
+    def __init__(self, root_dir, split='train', transform=None, visualize_samples=False, split_ratios=(0.8, 0.1, 0.1), split_files=None):
         """
         Args:
             root_dir (str): Directory with the .npz files.
@@ -20,34 +21,41 @@ class ProteinFragmentDataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
             visualize_samples (bool): Whether to visualize some samples for debugging.
             split_ratios (tuple): Ratios for train, val, and test splits.
+            split_files (dict): Dictionary with paths to split files (e.g., {'train': 'train.txt', 'val': 'val.txt', 'test': 'test.txt'}).
         """
         self.root_dir = root_dir
         self.split = split  # Store the split as an instance attribute
         self.transform = transform
         self.visualize_samples = visualize_samples
 
-        # List all .npz files in the directory
-        all_files = sorted([str(f) for f in Path(root_dir).glob("map_*.npz")])
-
-        # Split the dataset
-        train_files, test_files = train_test_split(all_files, test_size=split_ratios[2], random_state=42)
-        train_files, val_files = train_test_split(train_files, test_size=split_ratios[1] / (split_ratios[0] + split_ratios[1]), random_state=42)
-
-        if split == 'train':
-            self.files = train_files
-        elif split == 'val':
-            self.files = val_files
-        elif split == 'test':
-            self.files = test_files
+        if split_files and split in split_files:
+            # Load split from file
+            with open(split_files[split], 'r') as f:
+                self.files = [line.strip() for line in f.readlines()]
         else:
-            raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'.")
+            # List all .npz files in the directory
+            all_files = sorted([str(f) for f in Path(root_dir).glob("map_*.npz")])
+
+            # Split the dataset
+            train_files, test_files = train_test_split(all_files, test_size=split_ratios[2], random_state=42)
+            train_files, val_files = train_test_split(train_files, test_size=split_ratios[1] / (split_ratios[0] + split_ratios[1]), random_state=42)
+
+            if split == 'train':
+                self.files = train_files
+            elif split == 'val':
+                self.files = val_files
+            elif split == 'test':
+                self.files = test_files
+            else:
+                raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'.")
+
+            # Save splits to disk if not already saved
+            if split_files:
+                for split_name, split_files_list in zip(['train', 'val', 'test'], [train_files, val_files, test_files]):
+                    with open(split_files[split_name], 'w') as f:
+                        f.writelines(f"{file}\n" for file in split_files_list)
 
         print(f"Found {len(self.files)} samples for {split} split")
-
-        # Visualize a few samples if requested
-        if visualize_samples:
-            self.visualize_random_samples(5)
-
 
     def __len__(self):
         return len(self.files)
@@ -114,16 +122,17 @@ class ProteinFragmentDataset(Dataset):
         plt.close()
         
 
-def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_samples=True):
+def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_samples=True, split_files=None):
     """
     Create dataloaders for training, validation, and testing.
-    
+
     Args:
         root_dir (str): Directory with the dataset.
         batch_size (int): Batch size.
         num_workers (int): Number of workers for data loading. Defaults to the number of CPU cores.
         visualize_samples (bool): Whether to visualize some samples for debugging.
-        
+        split_files (dict): Dictionary with paths to split files (e.g., {'train': 'train.txt', 'val': 'val.txt', 'test': 'test.txt'}).
+
     Returns:
         dict: A dictionary containing dataloaders for 'train', 'val', and 'test' splits.
     """
@@ -131,46 +140,46 @@ def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_sample
         num_workers = os.cpu_count()  # Use all available CPU cores
 
     # Create datasets
-    train_dataset = ProteinFragmentDataset(root_dir, split='train', visualize_samples=visualize_samples)
-    val_dataset = ProteinFragmentDataset(root_dir, split='val', visualize_samples=visualize_samples)
-    test_dataset = ProteinFragmentDataset(root_dir, split='test', visualize_samples=visualize_samples)
-    
+    train_dataset = ProteinFragmentDataset(root_dir, split='train', visualize_samples=visualize_samples, split_files=split_files)
+    val_dataset = ProteinFragmentDataset(root_dir, split='val', visualize_samples=visualize_samples, split_files=split_files)
+    test_dataset = ProteinFragmentDataset(root_dir, split='test', visualize_samples=visualize_samples, split_files=split_files)
+
     # Debugging: Print dataset sizes
     print(f"Train dataset size: {len(train_dataset)} samples")
     print(f"Validation dataset size: {len(val_dataset)} samples")
     print(f"Test dataset size: {len(test_dataset)} samples")
-    
+
     # Create dataloaders
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
         prefetch_factor=4,
         persistent_workers=True
     )
-    
+
     val_loader = DataLoader(
-        val_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
         prefetch_factor=4,
         persistent_workers=True
     )
-    
+
     test_loader = DataLoader(
-        test_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
         prefetch_factor=4,
         persistent_workers=True
     )
-    
+
     return {
         'train': train_loader,
         'val': val_loader,
