@@ -14,7 +14,7 @@ from Bio.PDB.Polypeptide import is_aa
 from skimage.transform import resize
 
 # ========== CONFIG ==========
-NUM_PROTEINS = 40000
+NUM_PROTEINS = 50000
 BATCH_SIZE = 500
 DOWNLOAD_WORKERS = min(64, mp.cpu_count() * 4)
 PROCESS_WORKERS = mp.cpu_count()
@@ -142,17 +142,39 @@ async def download_batch(pdb_ids):
     
     return [pdb_id for pdb_id, success in results if success]
 
+
 def process_protein(pdb_file):
     """Process a single protein file"""
     try:
-        distance_map = compute_distance_map(pdb_file)
-        if distance_map is not None:
-            return preprocess_map(distance_map)
-        return None
+        structure = load_structure(pdb_file, os.path.basename(pdb_file)[:4])
+        fragments = extract_fragments(structure, FRAGMENT_LENGTH)
+        
+        if not fragments:
+            return None
+        
+        distance_maps = []
+        for fragment in fragments:
+            ca_atoms = [res['CA'] for res in fragment if 'CA' in res]
+            if len(ca_atoms) != FRAGMENT_LENGTH:
+                continue
+            
+            # Compute pairwise distances
+            dmap = np.zeros((FRAGMENT_LENGTH, FRAGMENT_LENGTH))
+            for i, atom1 in enumerate(ca_atoms):
+                for j, atom2 in enumerate(ca_atoms):
+                    dmap[i, j] = np.sqrt(np.sum((atom1.get_coord() - atom2.get_coord())**2))
+            
+            # Preprocess and append the distance map
+            processed_map = preprocess_map(dmap)
+            if processed_map is not None:
+                distance_maps.append(processed_map)
+        
+        return distance_maps
     except Exception as e:
         logger.error(f"Error processing {pdb_file}: {e}")
         return None
 
+        
 async def main():
     os.makedirs(TEMP_DIR, exist_ok=True)
     os.makedirs(MAPS_DIR, exist_ok=True)
@@ -190,22 +212,18 @@ async def main():
             for idx, pdb_file in enumerate(pdb_files):
                 if pdb_file.exists():
                     try:
-                        # Process single protein
-                        dmap = process_protein(pdb_file)
-                        if dmap is not None:
-                            # Save with compression
-                            map_path = Path(MAPS_DIR) / f"map_{successful_maps:05d}.npz"
-                            np.savez_compressed(map_path, distance_map=dmap)
-                            
-                            # Track storage usage
-                            total_size += os.path.getsize(map_path)
-                            successful_maps += 1
-                            
-                        # Remove PDB file immediately after processing
+                        # Process all fragments
+                        distance_maps = process_protein(pdb_file)
+                        if distance_maps:
+                            for fragment_idx, dmap in enumerate(distance_maps):
+                                map_path = Path(MAPS_DIR) / f"map_{successful_maps:05d}_{fragment_idx:02d}.npz"
+                                np.savez_compressed(map_path, distance_map=dmap)
+                                successful_maps += 1
                         pdb_file.unlink()
                     except Exception as e:
                         logger.error(f"Error processing {pdb_file}: {e}")
-                        pdb_file.unlink()  # Clean up on error
+                        pdb_file.unlink()
+                        continue        
 
             # Log progress and storage usage
             logger.info(f"Processed {successful_maps} maps. Total storage: {total_size / (1024*1024*1024):.2f} GB")
