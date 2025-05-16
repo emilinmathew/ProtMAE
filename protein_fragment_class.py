@@ -12,9 +12,6 @@ import matplotlib.pyplot as plt
 
 num_workers = os.cpu_count()
 class ProteinFragmentDataset(Dataset):
-    """
-    Dataset for protein fragment distance maps saved in .npz format.
-    """
     def __init__(self, root_dir, split='train', transform=None, visualize_samples=False, split_ratios=(0.8, 0.1, 0.1)):
         """
         Args:
@@ -25,6 +22,7 @@ class ProteinFragmentDataset(Dataset):
             split_ratios (tuple): Ratios for train, val, and test splits.
         """
         self.root_dir = root_dir
+        self.split = split  # Store the split as an instance attribute
         self.transform = transform
         self.visualize_samples = visualize_samples
 
@@ -49,6 +47,7 @@ class ProteinFragmentDataset(Dataset):
         # Visualize a few samples if requested
         if visualize_samples:
             self.visualize_random_samples(5)
+
 
     def __len__(self):
         return len(self.files)
