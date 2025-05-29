@@ -8,6 +8,8 @@ import time
 import numpy as np
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
+import sys
+sys.path.append('..')  # Add parent directory to Python path
 from protein_fragment_class import get_dataloaders
 # import wandb  # Optional: for experiment tracking
 
