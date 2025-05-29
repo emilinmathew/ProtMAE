@@ -600,7 +600,7 @@ if __name__ == "__main__":
         'data_dir': "../new_distance_maps",
         'output_dir': "./mae_results",
         'epochs': 10,
-        'batch_size': 64,
+        'batch_size': 256,         # Increased aggressively for T4 optimization
         'learning_rate': 1e-4,
         'mask_ratio': 0.75,
         'warmup_epochs': 2,
