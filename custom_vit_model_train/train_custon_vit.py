@@ -55,7 +55,7 @@ def print_gpu_utilization():
         print("No GPU available")
 
 def train_protein_mae(
-    data_dir="./distance_maps",
+    data_dir="../new_distance_maps",
     output_dir="./mae_results",
     epochs=100,
     batch_size=128,
