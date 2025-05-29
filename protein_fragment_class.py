@@ -137,7 +137,7 @@ class ProteinFragmentDataset(Dataset):
         plt.close()
         print(f"Sample visualizations saved to {self.root_dir}/{self.split}_samples.png")
 
-def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_samples=True, split_files=None):
+def get_dataloaders(root_dir, batch_size=512, num_workers=None, pin_memory=True, visualize_samples=True, split_files=None):
     """
     Create dataloaders for training, validation, and testing.
     """
@@ -158,15 +158,16 @@ def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_sample
     if visualize_samples:
         train_dataset.visualize_random_samples()
 
-    # Create dataloaders
+    # Create dataloaders with optimized settings for GPU
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory,
         prefetch_factor=2,
-        persistent_workers=True if num_workers > 0 else False
+        persistent_workers=True if num_workers > 0 else False,
+        drop_last=True  # Added to ensure consistent batch sizes
     )
 
     val_loader = DataLoader(
@@ -174,17 +175,17 @@ def get_dataloaders(root_dir, batch_size=512, num_workers=None, visualize_sample
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory,
         prefetch_factor=2,
         persistent_workers=True if num_workers > 0 else False
     )
 
     test_loader = DataLoader(
-        test_dataset,
+        val_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory,
         prefetch_factor=2,
         persistent_workers=True if num_workers > 0 else False
     )

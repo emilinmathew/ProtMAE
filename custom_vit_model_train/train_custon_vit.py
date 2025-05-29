@@ -19,6 +19,41 @@ from custom_Vit import (
     create_optimizer, cosine_scheduler
 )
 
+def check_cuda_availability():
+    """Check CUDA availability and print detailed information"""
+    print("\n=== CUDA Availability Check ===")
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    
+    if torch.cuda.is_available():
+        print(f"CUDA version: {torch.version.cuda}")
+        print(f"Number of GPUs: {torch.cuda.device_count()}")
+        print("\nGPU Information:")
+        for i in range(torch.cuda.device_count()):
+            print(f"\nGPU {i}: {torch.cuda.get_device_name(i)}")
+            print(f"Memory allocated: {torch.cuda.memory_allocated(i) / 1024**2:.2f} MB")
+            print(f"Memory reserved: {torch.cuda.memory_reserved(i) / 1024**2:.2f} MB")
+        
+        # Set default device
+        torch.cuda.set_device(0)
+        print(f"\nUsing GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        print("\nWARNING: CUDA is not available. Training will be very slow on CPU!")
+        print("Please check your CUDA installation if you intended to use GPU.")
+    
+    print("==============================\n")
+
+def print_gpu_utilization():
+    """Print current GPU memory usage"""
+    if torch.cuda.is_available():
+        print("\nGPU Memory Usage:")
+        print(f"Device: {torch.cuda.get_device_name(0)}")
+        print(f"Memory Allocated: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
+        print(f"Memory Reserved: {torch.cuda.memory_reserved(0) / 1024**2:.2f} MB")
+        print(f"Max Memory Allocated: {torch.cuda.max_memory_allocated(0) / 1024**2:.2f} MB")
+    else:
+        print("No GPU available")
+
 def train_protein_mae(
     data_dir="./distance_maps",
     output_dir="./mae_results",
@@ -28,13 +63,21 @@ def train_protein_mae(
     mask_ratio=0.75,
     mask_ratio_schedule=None,
     warmup_epochs=10,
-    use_wandb=False
+    use_wandb=False,
+    num_workers=4,
+    pin_memory=True
 ):
     """Train the Protein Distance MAE model"""
+    
+    # Check CUDA availability first
+    check_cuda_availability()
     
     # Setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    
+    # Print initial GPU stats
+    print_gpu_utilization()
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -59,7 +102,7 @@ def train_protein_mae(
     
     # Get dataloaders
     print("Loading datasets...")
-    dataloaders = get_dataloaders(data_dir, batch_size=batch_size, split_files=split_files)
+    dataloaders = get_dataloaders(data_dir, batch_size=batch_size, split_files=split_files, num_workers=num_workers, pin_memory=pin_memory)
     
     # Create model
     model = ProteinDistanceMAE(
@@ -74,6 +117,10 @@ def train_protein_mae(
     ).to(device)
     
     print(f"Model created with {sum(p.numel() for p in model.parameters())} parameters")
+    
+    # Print GPU stats after model creation
+    print("\nGPU stats after model creation:")
+    print_gpu_utilization()
     
     # Loss function
     criterion = ProteinMAELoss(smoothness_weight=0.1, symmetry_weight=0.1)
@@ -153,6 +200,10 @@ def train_protein_mae(
                 'lr': f"{lr:.6f}",
                 'mask': f"{current_mask_ratio:.2f}"
             })
+            
+            # Print GPU stats every 100 steps
+            if step % 100 == 0:
+                print_gpu_utilization()
             
             # Log to wandb
             if use_wandb and step % 10 == 0:
@@ -541,14 +592,16 @@ def compare_with_baselines(mae_metrics, output_dir):
 if __name__ == "__main__":
     # Training configuration
     config = {
-        'data_dir': "../distance_maps",
+        'data_dir': "../new_distance_maps",
         'output_dir': "./mae_results",
         'epochs': 10,  # Reduced for testing on CPU
-        'batch_size': 32,  # Reduced for CPU
+        'batch_size': 64,  # Increased for GPU
         'learning_rate': 1e-4,
         'mask_ratio': 0.75,
         'warmup_epochs': 2,  # Reduced for testing
-        'use_wandb': False  # Set to True if you want to use Weights & Biases
+        'use_wandb': False,  # Set to True if you want to use Weights & Biases
+        'num_workers': 4,  # Added for better data loading
+        'pin_memory': True  # Added for faster data transfer to GPU
     }
     
     # Train model
