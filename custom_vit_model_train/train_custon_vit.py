@@ -165,6 +165,9 @@ def train_protein_mae(
         train_loss = 0
         train_steps = 0
         
+        # Initialize GradScaler for mixed precision
+        scaler = torch.cuda.amp.GradScaler()
+        
         pbar = tqdm(dataloaders['train'], desc=f"Epoch {epoch+1}/{epochs} (Train)")
         for step, batch in enumerate(pbar):
             # Get data
@@ -175,20 +178,22 @@ def train_protein_mae(
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             
-            # Forward pass
+            # Forward pass with mixed precision
             optimizer.zero_grad()
-            pred, ids_restore, ids_keep = model(distance_maps, mask_ratio=current_mask_ratio)
+            with torch.cuda.amp.autocast():
+                pred, ids_restore, ids_keep = model(distance_maps, mask_ratio=current_mask_ratio)
+                # Compute loss in mixed precision
+                loss, loss_components = criterion(pred, distance_maps)
             
-            # Compute loss
-            loss, loss_components = criterion(pred, distance_maps)
+            # Backward pass and optimizer step with GradScaler
+            scaler.scale(loss).backward()
             
-            # Backward pass
-            loss.backward()
-            
-            # Gradient clipping
+            # Gradient clipping (apply before optimizer step)
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             
             # Update metrics
             train_loss += loss.item()
@@ -594,14 +599,14 @@ if __name__ == "__main__":
     config = {
         'data_dir': "../new_distance_maps",
         'output_dir': "./mae_results",
-        'epochs': 10,  # Reduced for testing on CPU
-        'batch_size': 64,  # Increased for GPU
+        'epochs': 10,
+        'batch_size': 64,
         'learning_rate': 1e-4,
         'mask_ratio': 0.75,
-        'warmup_epochs': 2,  # Reduced for testing
-        'use_wandb': False,  # Set to True if you want to use Weights & Biases
-        'num_workers': 4,  # Added for better data loading
-        'pin_memory': True  # Added for faster data transfer to GPU
+        'warmup_epochs': 2,
+        'use_wandb': False,
+        'num_workers': 8,
+        'pin_memory': True
     }
     
     # Train model
