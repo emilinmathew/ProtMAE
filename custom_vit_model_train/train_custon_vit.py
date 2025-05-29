@@ -541,7 +541,7 @@ def compare_with_baselines(mae_metrics, output_dir):
 if __name__ == "__main__":
     # Training configuration
     config = {
-        'data_dir': "./distance_maps",
+        'data_dir': "../distance_maps",
         'output_dir': "./mae_results",
         'epochs': 10,  # Reduced for testing on CPU
         'batch_size': 32,  # Reduced for CPU
