@@ -65,18 +65,43 @@ def analyze_model_visualizations(
     print("MAE model loaded successfully.")
 
     # Prepare data for analysis (using the test set)
-    print(f"Loading test dataset from {data_dir}...")
-    # Use a smaller batch size for analysis data loading if needed
-    analysis_batch_size = min(batch_size, num_viz_samples * 2) # Load enough data for viz samples
-    dataloaders = get_dataloaders(
-        data_dir,
+    print(f"Loading test dataset from {data_dir} using split files...")
+    
+    # --- Directly load the test split dataset and dataloader ---
+    # Build the full split_files dictionary, assuming splits dir is relative to project root
+    splits_dir = './splits'
+    split_files = {
+        'train': os.path.join(splits_dir, 'train.txt'),
+        'val': os.path.join(splits_dir, 'val.txt'),
+        'test': os.path.join(splits_dir, 'test.txt')
+    }
+
+    # Check if the test split file exists before proceeding
+    if not os.path.exists(split_files['test']):
+        print(f"Error: Test split file not found at {split_files['test']}.")
+        print("Please ensure train_custon_vit.py has been run at least once to generate split files.")
+        return
+
+    test_dataset = ProteinFragmentDataset(
+        root_dir=data_dir,
+        split='test',
+        visualize_samples=False, # Don't visualize samples during analysis data loading
+        split_files=split_files # Provide the full split_files dictionary
+    )
+
+    # Use a smaller batch size for analysis data loading if needed, capped by dataset size
+    analysis_batch_size = min(batch_size, len(test_dataset), num_viz_samples * 2) # Cap batch size and num_viz_samples
+    
+    test_dataloader = DataLoader(
+        test_dataset,
         batch_size=analysis_batch_size,
+        shuffle=False, # No need to shuffle for analysis
         num_workers=num_workers,
         pin_memory=pin_memory,
-        split_files={'test': './splits/test.txt'} # Explicitly use test split
+        drop_last=False # Don't drop last batch for analysis
     )
-    test_dataloader = dataloaders['test']
-    print(f"Loaded {len(test_dataloader.dataset)} samples for analysis.")
+
+    print(f"Loaded {len(test_dataset)} samples for analysis.") # Print actual dataset size
 
     # Collect embeddings and attention weights
     collected_cls_tokens = []
