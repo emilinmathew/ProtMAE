@@ -310,6 +310,7 @@ class ProteinDistanceMAE(nn.Module):
             # that restores the original order of the patches
             num_patches = (self.encoder.patch_embed.img_size // self.encoder.patch_embed.patch_size) ** 2
             ids_restore = torch.arange(num_patches, device=latent.device).unsqueeze(0)
+            ids_keep = None # Set ids_keep to None when no masking
         pred, fine_pred, coarse_pred = self.decoder(latent, ids_restore, ids_keep)
         return pred, fine_pred, coarse_pred, mask
     
