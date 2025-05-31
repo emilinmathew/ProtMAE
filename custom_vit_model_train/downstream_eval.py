@@ -258,7 +258,7 @@ if __name__ == "__main__":
         'batch_size': 128, # Batch size for data loading during analysis
         'num_workers': 8,  # Number of workers for data loading
         'pin_memory': True,
-        'num_viz_samples': 100 # Number of samples to use for visualizations (increase for better t-SNE)
+        'num_viz_samples': 10 # Number of samples to use for visualizations (decreased from 100)
     }
 
     # Create analysis output directory
