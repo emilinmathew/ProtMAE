@@ -30,7 +30,7 @@ def analyze_model_visualizations(
     batch_size=128, # Use a reasonable batch size for analysis
     num_workers=8,
     pin_memory=True,
-    num_viz_samples=10 # Number of samples to use for visualization
+    num_viz_samples=82213 # Number of samples to use for visualization
 ):
     """Loads a trained MAE model and generates visualizations (embeddings, attention)."""
 
