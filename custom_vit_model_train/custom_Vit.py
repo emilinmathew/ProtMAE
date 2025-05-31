@@ -291,7 +291,8 @@ class ProteinDistanceMAE(nn.Module):
         if mask_ratio == 0.0:
             # If no masking, ids_restore is None, so create a tensor of indices
             # that restores the original order of the patches
-            ids_restore = torch.arange(1, latent.shape[1], device=latent.device).unsqueeze(0)
+            num_patches = (self.encoder.patch_embed.img_size // self.encoder.patch_embed.patch_size) ** 2
+            ids_restore = torch.arange(num_patches, device=latent.device).unsqueeze(0)
         pred, fine_pred, coarse_pred = self.decoder(latent, ids_restore, ids_keep)
         return pred, fine_pred, coarse_pred, mask
     
