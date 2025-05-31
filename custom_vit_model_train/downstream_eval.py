@@ -206,6 +206,34 @@ def analyze_model_visualizations(
     print("Model analysis complete.")
 
 
+def visualize_reconstructions(original_images, reconstructed_images, output_dir, num_viz=10):
+    """Visualize original and reconstructed distance maps."""
+    print("Visualizing reconstructions...")
+    
+    num_samples_to_plot = min(num_viz, original_images.shape[0])
+    
+    fig, axes = plt.subplots(num_samples_to_plot, 2, figsize=(8, 4 * num_samples_to_plot))
+    if num_samples_to_plot == 1:
+        axes = [axes] # Ensure axes is always iterable
+
+    for i in range(num_samples_to_plot):
+        # Original
+        im_orig = axes[i, 0].imshow(original_images[i, 0].squeeze().numpy(), cmap='viridis', origin='lower')
+        axes[i, 0].set_title(f'Sample {i+1} Original')
+        axes[i, 0].axis('off')
+
+        # Reconstruction
+        im_recon = axes[i, 1].imshow(reconstructed_images[i, 0].squeeze().numpy(), cmap='viridis', origin='lower')
+        axes[i, 1].set_title(f'Sample {i+1} Reconstruction')
+        axes[i, 1].axis('off')
+
+    plt.tight_layout()
+    reconstruction_viz_path = os.path.join(output_dir, 'analysis_reconstructions.png')
+    plt.savefig(reconstruction_viz_path, dpi=300)
+    plt.close()
+    print(f"Reconstruction visualization saved to {reconstruction_viz_path}")
+
+
 # Visualization function for attention maps
 def visualize_attention_maps(attention_weights_batch, patch_size, num_heads, output_dir, num_viz=5):
     """Visualize attention maps for a few samples."""
