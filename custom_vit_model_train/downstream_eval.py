@@ -7,7 +7,7 @@ from tqdm import tqdm
 import sys
 # Add parent directory to Python path to import protein_fragment_class
 sys.path.append('..') 
-from protein_fragment_class import get_dataloaders
+from protein_fragment_class import get_dataloaders, ProteinFragmentDataset
 
 # Import the model architecture
 from custom_Vit import ProteinDistanceMAE
