@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import sys
+from torch.utils.data import DataLoader
 # Add parent directory to Python path to import protein_fragment_class
 sys.path.append('..') 
 from protein_fragment_class import get_dataloaders, ProteinFragmentDataset
