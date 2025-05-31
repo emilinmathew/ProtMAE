@@ -110,44 +110,38 @@ def analyze_model_visualizations(
     sample_originals = []
     sample_reconstructions = []
 
-    print(f"Collecting data for visualization from the first {num_viz_samples} samples...")
+    print(f"Collecting data for visualization from all {len(test_dataset)} test samples...")
     with torch.no_grad():
-        samples_processed = 0
+        # Removed samples_processed and break condition to process all samples
         for batch in tqdm(test_dataloader, desc="Collecting Viz Data"):
-            if samples_processed >= num_viz_samples: # Stop after collecting enough samples
-                break
 
             distance_maps = batch['distance_map'].to(device)
 
-            # Limit batch size to collect only necessary samples from this batch
+            # Use the full batch size as defined in config
             current_batch_size = distance_maps.size(0)
-            collect_up_to = min(num_viz_samples - samples_processed, current_batch_size)
 
-            if collect_up_to > 0:
-                # Get encoder features and attention weights by calling the encoder directly
-                # Ensure the encoder is capable of returning attention (check custom_Vit.py)
-                # We modified ProteinMAEEncoder to take return_attention=True
-                encoder_features, attn_weights_collected, _, _ = model.encoder(
-                    distance_maps[:collect_up_to],
-                    mask_ratio=0.0, # Don't mask during analysis
-                    return_attention=True
-                )
+            # Get encoder features and attention weights by calling the encoder directly
+            # Ensure the encoder is capable of returning attention (check custom_Vit.py)
+            # We modified ProteinMAEEncoder to take return_attention=True
+            encoder_features, attn_weights_collected, _, _ = model.encoder(
+                distance_maps,
+                mask_ratio=0.0, # Don't mask during analysis
+                return_attention=True
+            )
 
-                # Collect CLS tokens (features[:, 0])
-                collected_cls_tokens.append(encoder_features[:, 0].cpu())
-                sample_originals.append(distance_maps[:collect_up_to].cpu())
+            # Collect CLS tokens (features[:, 0])
+            collected_cls_tokens.append(encoder_features[:, 0].cpu())
+            sample_originals.append(distance_maps.cpu())
 
-                # Optionally collect reconstructions - call the full model
-                pred, _, _, _ = model(distance_maps[:collect_up_to], mask_ratio=0.0) # No masking for reconstruction analysis
-                sample_reconstructions.append(pred.cpu())
+            # Optionally collect reconstructions - call the full model
+            pred, _, _, _ = model(distance_maps, mask_ratio=0.0) # No masking for reconstruction analysis
+            sample_reconstructions.append(pred.cpu())
 
-                # Collect attention weights: CLS token to other patches from the last block
-                if attn_weights_collected is not None:
-                    # attn_weights_collected shape: Batch, N_heads, N_tokens
-                    # We want the attention from the CLS token (index 0) to all other patches (indices 1 to N-1)
-                    collected_attention.append(attn_weights_collected[:, :, 1:].cpu()) # Shape: [batch, N_heads, N_patches]
-
-                samples_processed += collect_up_to
+            # Collect attention weights: CLS token to other patches from the last block
+            if attn_weights_collected is not None:
+                # attn_weights_collected shape: Batch, N_heads, N_tokens
+                # We want the attention from the CLS token (index 0) to all other patches (indices 1 to N-1)
+                collected_attention.append(attn_weights_collected[:, :, 1:].cpu()) # Shape: [batch, N_heads, N_patches]
 
     # Concatenate collected data
     all_cls_tokens = torch.cat(collected_cls_tokens, dim=0) if collected_cls_tokens else None
