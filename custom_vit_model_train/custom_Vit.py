@@ -85,14 +85,17 @@ class ProteinAttentionBlock(nn.Module):
         # Distance-aware attention bias (learned)
         self.distance_bias = nn.Parameter(torch.zeros(1, num_heads, 1, 1))
         
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, return_attention=False):
         # Self-attention with residual
-        attn_out, _ = self.attn(self.norm1(x), self.norm1(x), self.norm1(x), 
-                                key_padding_mask=mask)
+        attn_out, attn_weights = self.attn(self.norm1(x), self.norm1(x), self.norm1(x), 
+                                         key_padding_mask=mask, need_weights=return_attention)
         x = x + attn_out
         
         # MLP with residual
         x = x + self.mlp(self.norm2(x))
+        
+        if return_attention:
+            return x, attn_weights
         return x
 
 class HybridProteinBlock(nn.Module):
@@ -106,9 +109,11 @@ class HybridProteinBlock(nn.Module):
         # Local convolution only works with full 16x16 grid
         self.use_local_conv = False
         
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, return_attention=False):
         # For now, just use attention block
         # Local convolution requires fixed spatial structure which breaks with masking
+        if return_attention:
+            return self.attn_block(x, mask, return_attention=True)
         return self.attn_block(x, mask)
 
 class ProteinMAEEncoder(nn.Module):
@@ -127,11 +132,24 @@ class ProteinMAEEncoder(nn.Module):
         
         self.norm = nn.LayerNorm(embed_dim)
         
-    def forward(self, x, mask_ratio=0.75):
+    def forward(self, x, mask_ratio=0.75, return_attention=False):
         # Embed patches
         x = self.patch_embed(x)
         B, N, D = x.shape
         
+        if return_attention:
+            # Store attention weights from the last block
+            attention_weights = None
+            # Apply transformer blocks, capture attention from the last block
+            for i, block in enumerate(self.blocks):
+                if i == len(self.blocks) - 1: # Capture attention from the last block
+                    x, attention_weights = block(x, return_attention=True)
+                else:
+                    x = block(x)
+            
+            x = self.norm(x)
+            return x, attention_weights, None, None # Return features, attention, and None for ids
+
         # Masking strategy: keep CLS token, randomly mask others
         num_patches_to_keep = int((N - 1) * (1 - mask_ratio)) + 1  # +1 for CLS
         
@@ -156,7 +174,7 @@ class ProteinMAEEncoder(nn.Module):
         x_masked = self.norm(x_masked)
         
         # Return both masked representation and info for reconstruction
-        return x_masked, ids_restore, ids_keep
+        return x_masked, None, ids_restore, ids_keep # Features, Attention, ids_restore, ids_keep
 
 class ProteinMAEDecoder(nn.Module):
     """Decoder with multi-scale reconstruction"""
@@ -270,12 +288,12 @@ class ProteinDistanceMAE(nn.Module):
                 
     def forward(self, x, mask_ratio=0.75):
         # Encode with masking
-        latent, ids_restore, ids_keep = self.encoder(x, mask_ratio)
+        latent, attention_weights, ids_restore, ids_keep = self.encoder(x, mask_ratio, return_attention=True)
         
         # Decode
         pred, fine_pred, coarse_pred = self.decoder(latent, ids_restore, ids_keep)
         
-        return pred, ids_restore, ids_keep
+        return pred, ids_restore, ids_keep, attention_weights
     
     def forward_loss(self, x, pred, ids_keep):
         """

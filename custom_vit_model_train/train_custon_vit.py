@@ -55,7 +55,7 @@ def print_gpu_utilization():
         print("No GPU available")
 
 def train_protein_mae(
-    data_dir="../new_distance_maps",
+    data_dir="./distance_maps",
     output_dir="./mae_results",
     epochs=100,
     batch_size=128,
@@ -239,7 +239,8 @@ def train_protein_mae(
                 distance_maps = batch['distance_map'].to(device)
                 
                 # Forward pass with fixed mask ratio
-                pred, _, _ = model(distance_maps, mask_ratio=mask_ratio)
+                # Note: We still pass mask_ratio but it's not used in model.eval()
+                pred, _, _, _ = model(distance_maps, mask_ratio=mask_ratio, return_attention=False) # Ensure no attention calculation during regular eval
                 
                 # Compute loss
                 loss, _ = criterion(pred, distance_maps)
@@ -293,7 +294,7 @@ def train_protein_mae(
             })
         
         # Save checkpoint
-        if avg_val_loss < best_val_loss:
+        if avg_val_loss < best_val_loss: # Changed from loss to avg_val_loss
             best_val_loss = avg_val_loss
             checkpoint = {
                 'epoch': epoch + 1,
@@ -325,20 +326,20 @@ def train_protein_mae(
     # Plot training history
     plot_training_history(history, output_dir)
     
-    # Evaluate on test set
-    print("\nEvaluating on test set...")
+    # Evaluate on test set (reconstruction task)
+    print("\nEvaluating on test set (reconstruction task)...")
     test_metrics = evaluate_mae(model, dataloaders['test'], device, criterion, 
                                output_dir, mask_ratio=mask_ratio)
     
-    print(f"\nTest Results:")
+    print(f"\nTest Results (Reconstruction Task):")
     print(f"  MSE: {test_metrics['mse']:.6f}")
     print(f"  SSIM: {test_metrics['ssim']:.4f}")
     print(f"  Reconstruction Time: {test_metrics['time_per_sample']:.2f} ms")
     
     # Save test metrics
-    with open(os.path.join(output_dir, 'test_metrics.txt'), 'w') as f:
+    with open(os.path.join(output_dir, 'test_metrics_recon.txt'), 'w') as f: # Renamed file to specify reconstruction
         for key, value in test_metrics.items():
-            if key not in ['sample_originals', 'sample_reconstructions']:
+            if key not in ['sample_originals', 'sample_reconstructions', 'all_cls_tokens', 'collected_attention']:# Exclude collected data for visualization
                 f.write(f"{key}: {value}\n")
     
     if use_wandb:
@@ -347,7 +348,7 @@ def train_protein_mae(
     return model, history, test_metrics
 
 def evaluate_mae(model, dataloader, device, criterion, output_dir, mask_ratio=0.75):
-    """Evaluate MAE model on test set"""
+    """Evaluate MAE model on test set for reconstruction task."""
     model.eval()
     
     total_mse = 0
@@ -360,34 +361,37 @@ def evaluate_mae(model, dataloader, device, criterion, output_dir, mask_ratio=0.
     total_time = 0
     time_samples = 0
     
-    # For visualization
-    sample_originals = []
-    sample_reconstructions = []
-    sample_masked = []
+    # For visualization - these will now be collected by the analyze script
+    # sample_originals = []
+    # sample_reconstructions = []
+    # sample_masked = []
     
     with torch.no_grad():
-        for batch_idx, batch in enumerate(tqdm(dataloader, desc="Evaluating")):
+        for batch_idx, batch in enumerate(tqdm(dataloader, desc="Evaluating Reconstruction")):
             distance_maps = batch['distance_map'].to(device)
             
             # Time reconstruction
-            if time_samples < 50:
+            if time_samples < 50: # Limit timing to avoid slowing down evaluation too much
                 start_time = time.time()
-                pred, ids_restore, ids_keep = model(distance_maps, mask_ratio=mask_ratio)
+                # Call the full model forward - it handles passing to encoder/decoder
+                # For evaluation, we don't need attention here, so return_attention=False
+                pred, _, _, _ = model(distance_maps, mask_ratio=mask_ratio, return_attention=False)
                 end_time = time.time()
                 
                 batch_time = (end_time - start_time) * 1000  # ms
                 total_time += batch_time
                 time_samples += 1
             else:
-                pred, ids_restore, ids_keep = model(distance_maps, mask_ratio=mask_ratio)
-            
-            # Calculate loss
-            loss, _ = criterion(pred, distance_maps)
+                 # Call the full model forward (no timing after 50 batches)
+                 pred, _, _, _ = model(distance_maps, mask_ratio=mask_ratio, return_attention=False)
+
+            # Calculate loss (optional for evaluation, but good to have)
+            loss, _ = criterion(pred, distance_maps) # Use the reconstruction loss
             total_loss += loss.item()
-            
+
             # Calculate MSE
-            mse = nn.functional.mse_loss(pred, distance_maps)
-            total_mse += mse.item()
+            mse = nn.functional.mse_loss(pred, distance_maps).item()
+            total_mse += mse
             batch_count += 1
             
             # Calculate SSIM
@@ -396,62 +400,37 @@ def evaluate_mae(model, dataloader, device, criterion, output_dir, mask_ratio=0.
                 recon = pred[i, 0].cpu().numpy()
                 
                 if not np.isnan(original).any() and not np.isnan(recon).any():
-                    sim = ssim(original, recon, data_range=1.0)
+                    sim = ssim(original, recon, data_range=1.0) # Use data_range=1.0 assuming normalized inputs
                     total_ssim += sim
                     sample_count += 1
             
-            # Store samples for visualization (first batch only)
-            if batch_idx == 0 and len(sample_originals) < 5:
-                sample_originals.append(distance_maps[:5].cpu())
-                sample_reconstructions.append(pred[:5].cpu())
-                
-                # Create masked version for visualization
-                masked = distance_maps.clone()
-                B, C, H, W = masked.shape
-                patch_size = 4
-                num_patches = (H // patch_size) * (W // patch_size)
-                
-                for b in range(min(5, B)):
-                    # Create mask visualization
-                    mask = torch.ones(num_patches, dtype=torch.bool)
-                    mask[ids_keep[b, 1:] - 1] = False  # -1 because we excluded CLS
-                    mask = mask.reshape(H // patch_size, W // patch_size)
-                    mask = mask.repeat_interleave(patch_size, dim=0).repeat_interleave(patch_size, dim=1)
-                    masked[b, 0][mask] = 0
-                
-                sample_masked.append(masked[:5].cpu())
-    
+            # Visualization samples will be collected by the separate analysis script
+            # Do not collect here to keep evaluation focused and faster
+
     # Calculate averages
     avg_mse = total_mse / batch_count
-    avg_ssim = total_ssim / sample_count
+    avg_ssim = total_ssim / sample_count if sample_count > 0 else 0 # Avoid division by zero
     avg_loss = total_loss / batch_count
-    time_per_sample = total_time / time_samples / dataloader.batch_size if time_samples > 0 else 0
+    time_per_sample = total_time / time_samples / dataloader.batch_size if time_samples > 0 and dataloader.batch_size > 0 else 0
     
-    # Visualize results
-    if sample_originals:
-        visualize_mae_results(
-            torch.cat(sample_originals, dim=0),
-            torch.cat(sample_masked, dim=0),
-            torch.cat(sample_reconstructions, dim=0),
-            os.path.join(output_dir, 'mae_test_results.png')
-        )
+    # Reconstruction visualization will be done by the separate analysis script
+    # Do not call visualize_mae_results here
     
     return {
         'mse': avg_mse,
         'ssim': avg_ssim,
         'loss': avg_loss,
         'time_per_sample': time_per_sample,
-        'sample_originals': sample_originals,
-        'sample_reconstructions': sample_reconstructions
+        # Do not return visualization data here
     }
 
 def visualize_mae_results(originals, masked, reconstructions, save_path):
     """Visualize MAE results with original, masked, and reconstructed images"""
     n_samples = min(5, len(originals))
-    fig, axes = plt.subplots(n_samples, 4, figsize=(16, 4*n_samples))
+    fig, axes = plt.subplots(n_samples, 3, figsize=(12, 4*n_samples)) # Removed masked column
     
     if n_samples == 1:
-        axes = axes.reshape(1, -1)
+        axes = axes.reshape(1, -1) # Ensure axes is 2D even for 1 sample
     
     for i in range(n_samples):
         # Original
@@ -459,26 +438,21 @@ def visualize_mae_results(originals, masked, reconstructions, save_path):
         axes[i, 0].set_title('Original')
         axes[i, 0].axis('off')
         
-        # Masked (75% masked)
-        im2 = axes[i, 1].imshow(masked[i, 0], cmap='viridis', vmin=0, vmax=1)
-        axes[i, 1].set_title('Masked Input (75%)')
-        axes[i, 1].axis('off')
-        
         # Reconstruction
-        im3 = axes[i, 2].imshow(reconstructions[i, 0], cmap='viridis', vmin=0, vmax=1)
-        axes[i, 2].set_title('Reconstruction')
-        axes[i, 2].axis('off')
+        im2 = axes[i, 1].imshow(reconstructions[i, 0], cmap='viridis', vmin=0, vmax=1)
+        axes[i, 1].set_title('Reconstruction')
+        axes[i, 1].axis('off')
         
         # Error map
         error = np.abs(originals[i, 0].numpy() - reconstructions[i, 0].numpy())
-        im4 = axes[i, 3].imshow(error, cmap='hot', vmin=0, vmax=0.5)
-        axes[i, 3].set_title(f'Error (Mean: {np.mean(error):.4f})')
-        axes[i, 3].axis('off')
+        im3 = axes[i, 2].imshow(error, cmap='hot', vmin=0, vmax=0.5) # Changed im4 to im3
+        axes[i, 2].set_title(f'Error (Mean: {np.mean(error):.4f})') # Changed im4 to im3
+        axes[i, 2].axis('off') # Changed im4 to im3
         
         # Add colorbars
         if i == 0:
-            fig.colorbar(im1, ax=axes[i, :3], fraction=0.046, pad=0.04)
-            fig.colorbar(im4, ax=axes[i, 3], fraction=0.046, pad=0.04)
+            fig.colorbar(im1, ax=axes[i, :2], fraction=0.046, pad=0.04) # Adjusted for 2 columns
+            fig.colorbar(im3, ax=axes[i, 2], fraction=0.046, pad=0.04) # Adjusted for 1 column
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -597,9 +571,9 @@ def compare_with_baselines(mae_metrics, output_dir):
 if __name__ == "__main__":
     # Training configuration
     config = {
-        'data_dir': "../new_distance_maps",
+        'data_dir': "./distance_maps",
         'output_dir': "./mae_results",
-        'epochs': 10,
+        'epochs': 100,
         'batch_size': 256,         # Increased aggressively for T4 optimization
         'learning_rate': 1e-4,
         'mask_ratio': 0.75,
@@ -609,14 +583,17 @@ if __name__ == "__main__":
         'pin_memory': True
     }
     
-    # Train model
+    # --- Uncomment ONE of the following blocks --- #
+
+    # Option 1: Train the model
     model, history, test_metrics = train_protein_mae(**config)
-    
-    # Compare with baselines
     compare_with_baselines(test_metrics, config['output_dir'])
     
-    print("\nProtein MAE Training Complete!")
-    print(f"Best Val Loss: {min(history['val_loss']):.6f}")
-    print(f"Final Test MSE: {test_metrics['mse']:.6f}")
-    print(f"Final Test SSIM: {test_metrics['ssim']:.4f}")
-    print(f"Inference Time: {test_metrics['time_per_sample']:.2f} ms per sample")
+    # Option 2: Analyze a trained model checkpoint
+    # checkpoint_path = os.path.join(config['output_dir'], 'best_model.pth') # Or 'final_model.pth'
+    # if os.path.exists(checkpoint_path):
+    #     analyze_model_visualizations(checkpoint_path, **config) # Pass config to reuse settings
+    # else:
+    #     print(f"Error: Checkpoint not found at {checkpoint_path}")
+    
+    print("\nScript execution complete!")
