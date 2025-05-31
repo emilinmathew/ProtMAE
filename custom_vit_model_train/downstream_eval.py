@@ -143,9 +143,9 @@ def analyze_model_visualizations(
 
                 # Collect attention weights: CLS token to other patches from the last block
                 if attn_weights_collected is not None:
-                    # attn_weights_collected shape: Batch, N_heads, N_tokens, N_tokens
+                    # attn_weights_collected shape: Batch, N_heads, N_tokens
                     # We want the attention from the CLS token (index 0) to all other patches (indices 1 to N-1)
-                    collected_attention.append(attn_weights_collected[:, :, 0, 1:].cpu()) # Shape: [batch, N_heads, N_patches]
+                    collected_attention.append(attn_weights_collected[:, :, 1:].cpu()) # Shape: [batch, N_heads, N_patches]
 
                 samples_processed += collect_up_to
 
