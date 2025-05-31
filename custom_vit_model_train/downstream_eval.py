@@ -40,7 +40,8 @@ def find_similar_samples(
         print(f"Error: Query sample index {query_sample_index} is out of bounds for the collected embeddings.")
         return []
 
-    query_embedding = all_embeddings[query_sample_index].unsqueeze(0) # Shape: 1, embed_dim
+    # Get the query embedding and add a dimension to make it 2D [1, embed_dim]
+    query_embedding = all_embeddings[query_sample_index:query_sample_index+1] # Use slicing to keep dimension
 
     # Compute cosine similarity between the query and all other embeddings
     # Cosine similarity is a good choice for comparing embeddings
