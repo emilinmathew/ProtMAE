@@ -217,6 +217,23 @@ class ProteinMAEDecoder(nn.Module):
         # Embed encoded tokens
         x = self.decoder_embed(x)
         
+        # If no masking, just use x as the input to the decoder
+        if ids_keep is None:
+            x = x + self.decoder_pos_embed
+            for block in self.decoder_blocks:
+                x = block(x)
+            x = self.decoder_norm(x)
+            x_patches = x[:, 1:]
+            fine_pred = self.decoder_pred['fine'](x_patches)
+            fine_pred = rearrange(fine_pred, 'b (h w) (p1 p2) -> b 1 (h p1) (w p2)', 
+                                 h=16, w=16, p1=self.patch_size, p2=self.patch_size)
+            coarse_pred = self.decoder_pred['coarse'](x_patches)
+            coarse_pred = rearrange(coarse_pred, 'b (h w) (p1 p2) -> b 1 (h p1) (w p2)', 
+                                   h=16, w=16, p1=self.patch_size//2, p2=self.patch_size//2)
+            coarse_pred = F.interpolate(coarse_pred, size=(64, 64), mode='bilinear', align_corners=False)
+            combined_pred = torch.sigmoid(fine_pred)
+            return combined_pred, fine_pred, coarse_pred
+        
         # Prepare mask tokens
         mask_tokens = self.mask_token.repeat(B, N - N_keep, 1)
         
