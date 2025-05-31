@@ -287,13 +287,13 @@ class ProteinDistanceMAE(nn.Module):
                 m.bias.data.zero_()
                 
     def forward(self, x, mask_ratio=0.75):
-        # Encode with masking
-        latent, attention_weights, ids_restore, ids_keep = self.encoder(x, mask_ratio, return_attention=True)
-        
-        # Decode
+        latent, mask, ids_restore, ids_keep = self.encoder(x, mask_ratio)
+        if mask_ratio == 0.0:
+            # If no masking, ids_restore is None, so create a tensor of indices
+            # that restores the original order of the patches
+            ids_restore = torch.arange(1, latent.shape[1], device=latent.device).unsqueeze(0)
         pred, fine_pred, coarse_pred = self.decoder(latent, ids_restore, ids_keep)
-        
-        return pred, ids_restore, ids_keep, attention_weights
+        return pred, fine_pred, coarse_pred, mask
     
     def forward_loss(self, x, pred, ids_keep):
         """
