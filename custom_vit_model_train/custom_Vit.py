@@ -150,6 +150,13 @@ class ProteinMAEEncoder(nn.Module):
             x = self.norm(x)
             return x, attention_weights, None, None # Return features, attention, and None for ids
 
+        # If no masking, just apply transformer blocks
+        if mask_ratio == 0.0:
+            for block in self.blocks:
+                x = block(x)
+            x = self.norm(x)
+            return x, None, None, None # Return features, None for attention, and None for ids
+
         # Masking strategy: keep CLS token, randomly mask others
         num_patches_to_keep = int((N - 1) * (1 - mask_ratio)) + 1  # +1 for CLS
         
