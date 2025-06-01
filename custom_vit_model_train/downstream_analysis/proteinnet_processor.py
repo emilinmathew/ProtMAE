@@ -32,11 +32,11 @@ class ProteinNetDataset(Dataset):
         """Load ProteinNet records from text files"""
         records = []
         
-        # Find the proteinnet files
-        casp_dir = None
+        print("Looking for CASP directory...")
         for item in os.listdir(self.data_dir):
             if item.startswith('casp') and os.path.isdir(os.path.join(self.data_dir, item)):
                 casp_dir = os.path.join(self.data_dir, item)
+                print(f"Found CASP directory: {casp_dir}")
                 break
         
         if not casp_dir:
@@ -45,30 +45,42 @@ class ProteinNetDataset(Dataset):
         # Look for the split file (without .txt extension)
         split_file_path = os.path.join(casp_dir, self.split)
         
+        print(f"Looking for split file: {split_file_path}")
         # Check if the expected split file exists
         if not os.path.exists(split_file_path):
             # List available files in the CASP directory
+            print(f"Split file not found. Listing available files in {casp_dir}:")
             available = os.listdir(casp_dir)
+            print(f"Available files: {available}")
             # Filter for files that match the split name (e.g., 'training_95', 'validation', 'testing')
             matching_files = [f for f in available if f == self.split]
             
             if matching_files:
                 # If a matching file is found, use it
                 split_file_path = os.path.join(casp_dir, matching_files[0])
-                print(f"Found matching file: {matching_files[0]}")
+                print(f"Found matching file: {matching_files[0]}. Using this path: {split_file_path}")
             else:
                 # If no matching file found, raise error
                 raise FileNotFoundError(f"No file found for split '{self.split}' in {casp_dir}")
         
+        print(f"Reading content from {split_file_path}...")
         # Parse the ProteinNet text file
         with open(split_file_path, 'r') as f:
             content = f.read()
+        print(f"Finished reading file. Content length: {len(content)}")
         
         # Split into individual protein records
+        print("Splitting content by [ID]...")
         protein_records = content.split('[ID]')
+        print(f"Split into {len(protein_records)} potential records.")
         
-        for record in protein_records[1:]:  # Skip first empty split
+        if len(protein_records) <= 1:
+             print("Warning: No [ID] found in the file content. Parsing may fail.")
+
+        print("Parsing individual records...")
+        for i, record in enumerate(protein_records[1:]):  # Skip first empty split
             if not record.strip():
+                print(f"Skipping empty record block {i+1}")
                 continue
                 
             lines = record.strip().split('\n')
@@ -77,31 +89,52 @@ class ProteinNetDataset(Dataset):
             # Extract relevant information
             protein_data = {'id': protein_id}
             
-            i = 1
-            while i < len(lines):
-                line = lines[i].strip()
+            # Add print to show which records are being processed and if primary/tertiary sections are found
+            # print(f"  Processing record {i+1}: ID = {protein_id}")
+            
+            i_line = 1
+            while i_line < len(lines):
+                line = lines[i_line].strip()
                 
                 if line == '[PRIMARY]':
-                    i += 1
-                    protein_data['sequence'] = lines[i].strip()
+                    i_line += 1
+                    if i_line < len(lines):
+                        protein_data['sequence'] = lines[i_line].strip()
+                        # print(f"    Found [PRIMARY] for {protein_id}")
+                    # else: print(f"    [PRIMARY] without sequence for {protein_id}")
                 elif line == '[TERTIARY]':
-                    i += 1
+                    i_line += 1
                     coords = []
-                    while i < len(lines) and not lines[i].startswith('['):
-                        coord_line = lines[i].strip()
+                    coord_lines_found = 0
+                    while i_line < len(lines) and not lines[i_line].startswith('['):
+                        coord_line = lines[i_line].strip()
                         if coord_line:
-                            coords.extend([float(x) for x in coord_line.split()])
-                        i += 1
+                            try:
+                                coords.extend([float(x) for x in coord_line.split()])
+                                coord_lines_found += 1
+                            except ValueError:
+                                print(f"    Warning: Could not parse coordinates in record {protein_id} at line {i_line+1}")
+                                # Decide how to handle parsing errors - skip record or continue?
+                                # For now, we'll just print a warning.
+                        i_line += 1
                     protein_data['coordinates'] = coords
-                    continue
+                    # print(f"    Found [TERTIARY] for {protein_id} with {len(coords)} coordinates from {coord_lines_found} lines")
+                    continue # Continue outer while loop from here
                 elif line == '[MASK]':
-                    i += 1
-                    protein_data['mask'] = lines[i].strip()
+                    i_line += 1
+                    if i_line < len(lines):
+                        protein_data['mask'] = lines[i_line].strip()
+                        # print(f"    Found [MASK] for {protein_id}")
+                    # else: print(f"    [MASK] without content for {protein_id}")
                 
-                i += 1
+                i_line += 1
             
             if 'sequence' in protein_data:
                 records.append(protein_data)
+                # print(f"  Added record {protein_id}. Total records found so far: {len(records)}")
+            # else: print(f"  Record {protein_id} skipped due to missing sequence.")
+
+        print(f"Finished parsing all records. Total records collected in _load_proteinnet_records: {len(records)}")
         
         return records
     
@@ -109,19 +142,57 @@ class ProteinNetDataset(Dataset):
         """Filter records that have both coordinates and SS annotations"""
         filtered = []
         
-        for record in self.records:
+        total_records = len(self.records)
+        filtered_count = 0
+        no_ss_annotation_count = 0
+        no_ss_key_count = 0
+        no_coordinates_count = 0
+        coord_len_mismatch_count = 0
+        seq_len_limit_count = 0
+        
+        print(f"Starting filtering of {total_records} records...")
+
+        for i, record in enumerate(self.records):
             pdb_id = record['id']
             
             # Check if we have SS annotation for this protein
-            if pdb_id in self.ss_annotations:
-                ss_info = self.ss_annotations[pdb_id]
-                # Check if we have coordinates to compute distance map AND if 'ss' key exists in ss_info
-                if 'coordinates' in record and len(record['coordinates']) > 0 and 'ss' in ss_info:
-                    seq_len = len(record['sequence'])
-                    expected_coords = seq_len * 3  # 3 coords per residue (CA atom)
-                    
-                    if len(record['coordinates']) >= expected_coords and seq_len <= self.max_length:
-                        filtered.append(record)
+            if pdb_id not in self.ss_annotations:
+                no_ss_annotation_count += 1
+                continue
+
+            ss_info = self.ss_annotations[pdb_id]
+            # Check if 'ss' key exists in ss_info
+            if 'ss' not in ss_info:
+                no_ss_key_count += 1
+                continue
+
+            # Check if we have coordinates to compute distance map
+            if 'coordinates' not in record or len(record['coordinates']) == 0:
+                no_coordinates_count += 1
+                continue
+
+            seq_len = len(record['sequence'])
+            expected_coords = seq_len * 3  # 3 coords per residue (CA atom)
+            
+            if len(record['coordinates']) < expected_coords:
+                 coord_len_mismatch_count += 1
+                 continue
+
+            if seq_len > self.max_length:
+                seq_len_limit_count += 1
+                continue
+            
+            # If all checks pass, add to filtered
+            filtered.append(record)
+            filtered_count += 1
+
+        print(f"Filtering complete. Total records loaded: {total_records}")
+        print(f"  Passed all filters: {filtered_count}")
+        print(f"  Excluded due to no SS annotation: {no_ss_annotation_count}")
+        print(f"  Excluded due to no 'ss' key in annotation: {no_ss_key_count}")
+        print(f"  Excluded due to no coordinates: {no_coordinates_count}")
+        print(f"  Excluded due to coordinate length mismatch: {coord_len_mismatch_count}")
+        print(f"  Excluded due to sequence length limit (> {self.max_length}): {seq_len_limit_count}")
         
         return filtered
     
