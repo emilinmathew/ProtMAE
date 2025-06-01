@@ -118,8 +118,9 @@ class ProteinNetDataset(Dataset):
             
             # Check if we have SS annotation for this protein
             if pdb_id in self.ss_annotations:
-                # Check if we have coordinates to compute distance map
-                if 'coordinates' in record and len(record['coordinates']) > 0:
+                ss_info = self.ss_annotations[pdb_id]
+                # Check if we have coordinates to compute distance map AND if 'ss' key exists in ss_info
+                if 'coordinates' in record and len(record['coordinates']) > 0 and 'ss' in ss_info:
                     seq_len = len(record['sequence'])
                     expected_coords = seq_len * 3  # 3 coords per residue (CA atom)
                     
