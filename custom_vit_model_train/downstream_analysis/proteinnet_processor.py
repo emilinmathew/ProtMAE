@@ -102,10 +102,6 @@ class ProteinNetDataset(Dataset):
             
             if 'sequence' in protein_data:
                 records.append(protein_data)
-            
-            # Limit for quick testing
-            if len(records) >= 1000:  # Start with smaller subset
-                break
         
         return records
     
