@@ -830,7 +830,7 @@ if __name__ == "__main__":
     os.makedirs(split_dir, exist_ok=True)
     
     # Get all .npz files
-    all_files = [f for f in os.listdir(data_dir) if f.endswith('.npz')]
+    all_files = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.npz')]
     np.random.shuffle(all_files)
     
     # Calculate split sizes (80% train, 10% val, 10% test)
