@@ -326,11 +326,11 @@ def main():
     print(f"Final test accuracy: {test_acc:.4f}")
 
 def evaluate_best_model():
-    """Load the best model and evaluate it on the test set"""
+    """Load the best model and evaluate it on the validation set (as test set)"""
     # Load data
-    from proteinnet_processor import create_test_dataloader
-    print("Loading test data...")
-    test_loader = create_test_dataloader(batch_size=32)
+    from proteinnet_processor import create_dataloaders
+    print("Loading data...")
+    train_loader, val_loader, _ = create_dataloaders(batch_size=32)
     
     # Initialize model
     mae_model_path = '../mae_results/best_model.pth'
@@ -345,13 +345,13 @@ def evaluate_best_model():
     model = model.to(device)
     print(f"Using device: {device}")
     
-    # Evaluate
+    # Evaluate on validation set (as test set)
     model.eval()
     all_preds = []
     all_labels = []
     
     with torch.no_grad():
-        for batch in test_loader:
+        for batch in val_loader:
             distance_maps = batch['distance_map'].to(device)
             labels = batch['ss_label'].to(device)
             
@@ -365,7 +365,7 @@ def evaluate_best_model():
     accuracy = accuracy_score(all_labels, all_preds)
     report = classification_report(all_labels, all_preds, target_names=['Alpha Helix', 'Beta Sheet', 'Coil'], output_dict=True)
     
-    print("\nTest set evaluation results:")
+    print("\nValidation set evaluation results (used as test set):")
     print(f"Accuracy: {accuracy:.4f}")
     print("\nClassification Report:")
     print(classification_report(all_labels, all_preds, target_names=['Alpha Helix', 'Beta Sheet', 'Coil']))
