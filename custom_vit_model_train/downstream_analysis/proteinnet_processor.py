@@ -8,7 +8,7 @@ import re
 class ProteinNetDataset(Dataset):
     """Dataset for loading ProteinNet data with secondary structure labels"""
     
-    def __init__(self, data_dir='proteinnet_data', split='training_95', max_length=128):
+    def __init__(self, data_dir='proteinnet_data', split='training_95', max_length=64):
         self.data_dir = data_dir
         self.split = split
         self.max_length = max_length
