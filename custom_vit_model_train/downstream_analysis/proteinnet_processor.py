@@ -215,17 +215,23 @@ class ProteinNetDataset(Dataset):
     
     def _pad_or_crop(self, data, target_size):
         """Pad or crop data to target size"""
-        if len(data) >= target_size:
-            return data[:target_size]
-        else:
-            if isinstance(data, str):
+        if isinstance(data, str):
+            if len(data) >= target_size:
+                return data[:target_size]
+            else:
                 return data + 'X' * (target_size - len(data))
-            elif isinstance(data, np.ndarray):
-                if data.ndim == 2:  # Distance map
+        elif isinstance(data, np.ndarray):
+            if data.ndim == 2:  # Distance map
+                if data.shape[0] >= target_size and data.shape[1] >= target_size:
+                    return data[:target_size, :target_size]
+                else:
                     padded = np.zeros((target_size, target_size))
                     padded[:data.shape[0], :data.shape[1]] = data
                     return padded
-                else:  # 1D array
+            else:  # 1D array
+                if len(data) >= target_size:
+                    return data[:target_size]
+                else:
                     padded = np.zeros(target_size)
                     padded[:len(data)] = data
                     return padded
@@ -257,8 +263,8 @@ class ProteinNetDataset(Dataset):
         ss_labels = self._ss_to_labels(ss_string)
         
         # Pad/crop to consistent size
-        dist_map = self._pad_or_crop(dist_map, 64)  # Match your model's expected input
-        ss_labels = self._pad_or_crop(np.array(ss_labels), 64)
+        dist_map = self._pad_or_crop(dist_map, self.max_length)  # Use max_length consistently
+        ss_labels = self._pad_or_crop(np.array(ss_labels), self.max_length)
         
         # Convert to tensors
         dist_map = torch.FloatTensor(dist_map).unsqueeze(0)  # Add channel dimension
@@ -271,7 +277,7 @@ class ProteinNetDataset(Dataset):
         return {
             'distance_map': dist_map,
             'ss_label': global_ss_label,
-            'sequence_length': min(seq_len, 64),
+            'sequence_length': min(seq_len, self.max_length),
             'protein_id': pdb_id
         }
 
