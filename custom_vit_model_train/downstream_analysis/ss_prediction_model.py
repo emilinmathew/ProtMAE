@@ -75,10 +75,11 @@ class ProteinSSPredictor(nn.Module):
 class SSPredictionTrainer:
     """Trainer for secondary structure prediction"""
     
-    def __init__(self, model, train_loader, val_loader, device='cuda'):
+    def __init__(self, model, train_loader, val_loader, test_loader, device='cuda'):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.test_loader = test_loader
         self.device = device
         
         # Loss and optimizer
@@ -143,6 +144,31 @@ class SSPredictionTrainer:
         self.val_accuracies.append(accuracy)
         
         return accuracy, all_preds, all_labels
+    
+    def evaluate(self, test_loader, return_report=False):
+        """Evaluate the model on the test set"""
+        self.model.eval()
+        all_preds = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for batch in test_loader:
+                distance_maps = batch['distance_map'].to(self.device)
+                labels = batch['ss_label'].to(self.device)
+                
+                logits = self.model(distance_maps)
+                preds = torch.argmax(logits, dim=1)
+                
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+        
+        accuracy = accuracy_score(all_labels, all_preds)
+        
+        if return_report:
+            report = classification_report(all_labels, all_preds, target_names=['Alpha Helix', 'Beta Sheet', 'Coil'])
+            return accuracy, report
+        else:
+            return accuracy
     
     def train(self, num_epochs=20):
         """Full training loop"""
@@ -217,7 +243,7 @@ def main():
     # Load data
     from proteinnet_processor import create_dataloaders
     print("Loading data...")
-    train_loader, val_loader = create_dataloaders(batch_size=16)
+    train_loader, val_loader, test_loader = create_dataloaders(batch_size=32)
     
     # Initialize model (replace with your actual MAE model path)
     mae_model_path = '../mae_results/best_model.pth'  # UPDATE THIS PATH!
@@ -233,15 +259,22 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # Train
-    trainer = SSPredictionTrainer(model, train_loader, val_loader, device)
+    # Initialize trainer
+    trainer = SSPredictionTrainer(model, train_loader, val_loader, test_loader, device)
+    
+    # Train model
+    print("Training for 20 epochs...")
     best_acc = trainer.train(num_epochs=20)
     
-    # Plot results
-    trainer.plot_training_curves()
+    # Final evaluation on test set
+    print("\nEvaluating on test set...")
+    test_acc, test_report = trainer.evaluate(test_loader, return_report=True)
+    print(f"\nTest set accuracy: {test_acc:.4f}")
+    print("\nTest set classification report:")
+    print(test_report)
     
-    print(f"\nTraining completed! Best accuracy: {best_acc:.4f}")
-    print("Model saved as 'best_ss_model.pth'")
+    print(f"\nTraining completed! Best validation accuracy: {best_acc:.4f}")
+    print(f"Final test accuracy: {test_acc:.4f}")
 
 if __name__ == "__main__":
     import os

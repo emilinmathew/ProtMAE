@@ -282,13 +282,13 @@ class ProteinNetDataset(Dataset):
         }
 
 def create_dataloaders(data_dir='proteinnet_data', batch_size=32):
-    """Create train/val dataloaders"""
+    """Create train/val/test dataloaders"""
     
     # Create datasets
     train_dataset = ProteinNetDataset(data_dir, split='training_95')  # 95% sequence identity cutoff
+    test_dataset = ProteinNetDataset(data_dir, split='testing')  # Test set
     
     # For validation, we'll use a portion of training data
-    # In practice, you'd use validation_* files
     train_size = int(0.8 * len(train_dataset))
     val_size = len(train_dataset) - train_size
     
@@ -299,8 +299,15 @@ def create_dataloaders(data_dir='proteinnet_data', batch_size=32):
     # Create dataloaders
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=2)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
-    return train_loader, val_loader
+    return train_loader, val_loader, test_loader
+
+def create_test_dataloader(data_dir='proteinnet_data', batch_size=32):
+    """Create only test dataloader for final evaluation"""
+    test_dataset = ProteinNetDataset(data_dir, split='testing')
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+    return test_loader
 
 # Test the data loading
 if __name__ == "__main__":
@@ -308,7 +315,7 @@ if __name__ == "__main__":
     if not os.path.exists('proteinnet_data'):
         print("Data not found. Please run the download script first.")
     else:
-        train_loader, val_loader = create_dataloaders(batch_size=4)
+        train_loader, val_loader, test_loader = create_dataloaders(batch_size=4)
         
         print("Testing data loading...")
         for batch in train_loader:
