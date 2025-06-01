@@ -246,7 +246,7 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
     criterion = ProteinSpecificLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, 
-                                                    factor=0.5, verbose=True)
+                                                    factor=0.5)
     
     # Training metrics tracking
     metrics = {
@@ -818,7 +818,7 @@ def generate_comprehensive_report(model, metrics, test_metrics, output_dir):
 
 if __name__ == "__main__":
     # Configuration
-    data_dir = "./distance_maps"
+    data_dir = "./new_distance_maps"
     output_dir = "./optimized_protein_cnn_results"
     
     # Create output directory
