@@ -858,8 +858,8 @@ if __name__ == "__main__":
     model, training_metrics, test_metrics = train_optimized_protein_cnn(
         data_dir=data_dir,
         output_dir=output_dir,
-        epochs=50,
-        batch_size=32,
+        epochs=25,
+        batch_size=256,
         learning_rate=0.001,
         mask_ratio=0.75
     )
