@@ -824,6 +824,35 @@ if __name__ == "__main__":
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
+    # Create new split files for the larger dataset
+    print("Creating new split files...")
+    split_dir = "./splits"
+    os.makedirs(split_dir, exist_ok=True)
+    
+    # Get all .npz files
+    all_files = [f for f in os.listdir(data_dir) if f.endswith('.npz')]
+    np.random.shuffle(all_files)
+    
+    # Calculate split sizes (80% train, 10% val, 10% test)
+    n_files = len(all_files)
+    n_train = int(0.8 * n_files)
+    n_val = int(0.1 * n_files)
+    
+    # Split the files
+    train_files = all_files[:n_train]
+    val_files = all_files[n_train:n_train + n_val]
+    test_files = all_files[n_train + n_val:]
+    
+    # Save split files
+    with open(os.path.join(split_dir, 'train.txt'), 'w') as f:
+        f.write('\n'.join(train_files))
+    with open(os.path.join(split_dir, 'val.txt'), 'w') as f:
+        f.write('\n'.join(val_files))
+    with open(os.path.join(split_dir, 'test.txt'), 'w') as f:
+        f.write('\n'.join(test_files))
+    
+    print(f"Created new split files with {len(train_files)} train, {len(val_files)} val, and {len(test_files)} test samples")
+    
     # Train the optimized model
     print("Starting optimized protein distance map CNN training...")
     model, training_metrics, test_metrics = train_optimized_protein_cnn(
