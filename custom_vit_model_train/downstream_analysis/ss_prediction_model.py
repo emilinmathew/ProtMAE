@@ -6,9 +6,58 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import numpy as np
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import matplotlib.pyplot as plt
+import seaborn as sns
 from custom_Vit import ProteinDistanceMAE  # Your MAE model
+
+def plot_confusion_matrix(y_true, y_pred, class_names):
+    """Plot confusion matrix with seaborn"""
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_names,
+                yticklabels=class_names)
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.tight_layout()
+    plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_class_distribution(labels, class_names):
+    """Plot class distribution"""
+    plt.figure(figsize=(8, 6))
+    sns.countplot(x=labels)
+    plt.title('Class Distribution in Test Set')
+    plt.xlabel('Secondary Structure Class')
+    plt.ylabel('Count')
+    plt.xticks(range(len(class_names)), class_names, rotation=45)
+    plt.tight_layout()
+    plt.savefig('class_distribution.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_performance_metrics(report_dict):
+    """Plot per-class performance metrics"""
+    metrics = ['precision', 'recall', 'f1-score']
+    classes = list(report_dict.keys())[:-3]  # Exclude accuracy and avg rows
+    
+    plt.figure(figsize=(10, 6))
+    x = np.arange(len(classes))
+    width = 0.25
+    
+    for i, metric in enumerate(metrics):
+        values = [report_dict[cls][metric] for cls in classes]
+        plt.bar(x + i*width, values, width, label=metric.capitalize())
+    
+    plt.title('Per-Class Performance Metrics')
+    plt.xlabel('Class')
+    plt.ylabel('Score')
+    plt.xticks(x + width, classes, rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('performance_metrics.png', dpi=300, bbox_inches='tight')
+    plt.close()
 
 class ProteinSSPredictor(nn.Module):
     """Secondary Structure Predictor using your trained MAE encoder"""
@@ -276,6 +325,65 @@ def main():
     print(f"\nTraining completed! Best validation accuracy: {best_acc:.4f}")
     print(f"Final test accuracy: {test_acc:.4f}")
 
+def evaluate_best_model():
+    """Load the best model and evaluate it on the test set"""
+    # Load data
+    from proteinnet_processor import create_test_dataloader
+    print("Loading test data...")
+    test_loader = create_test_dataloader(batch_size=32)
+    
+    # Initialize model
+    mae_model_path = '../mae_results/best_model.pth'
+    model = ProteinSSPredictor(mae_model_path, num_classes=3, freeze_encoder=True)
+    
+    # Load best weights
+    checkpoint = torch.load('best_ss_model.pth')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    # Move to device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+    print(f"Using device: {device}")
+    
+    # Evaluate
+    model.eval()
+    all_preds = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for batch in test_loader:
+            distance_maps = batch['distance_map'].to(device)
+            labels = batch['ss_label'].to(device)
+            
+            logits = model(distance_maps)
+            preds = torch.argmax(logits, dim=1)
+            
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    
+    # Calculate metrics
+    accuracy = accuracy_score(all_labels, all_preds)
+    report = classification_report(all_labels, all_preds, target_names=['Alpha Helix', 'Beta Sheet', 'Coil'], output_dict=True)
+    
+    print("\nTest set evaluation results:")
+    print(f"Accuracy: {accuracy:.4f}")
+    print("\nClassification Report:")
+    print(classification_report(all_labels, all_preds, target_names=['Alpha Helix', 'Beta Sheet', 'Coil']))
+    
+    # Create visualizations
+    class_names = ['Alpha Helix', 'Beta Sheet', 'Coil']
+    print("\nGenerating visualizations...")
+    plot_confusion_matrix(all_labels, all_preds, class_names)
+    plot_class_distribution(all_labels, class_names)
+    plot_performance_metrics(report)
+    print("Visualizations saved as:")
+    print("- confusion_matrix.png")
+    print("- class_distribution.png")
+    print("- performance_metrics.png")
+    
+    return accuracy, report
+
 if __name__ == "__main__":
     import os
-    main()
+    # main()  # Comment out training
+    evaluate_best_model()  # Just evaluate the best model
