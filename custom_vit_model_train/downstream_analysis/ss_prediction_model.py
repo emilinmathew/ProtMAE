@@ -329,7 +329,7 @@ def evaluate_best_model():
     """Load the best model and evaluate it on the validation set (as test set)"""
     # Load data
     from proteinnet_processor import create_dataloaders
-    print("Loading data...")
+    print("Loading validation data for evaluation...")
     train_loader, val_loader, _ = create_dataloaders(batch_size=32)
     
     # Initialize model
