@@ -42,22 +42,26 @@ class ProteinNetDataset(Dataset):
         if not casp_dir:
             raise FileNotFoundError("Could not find CASP directory")
         
-        # Look for the split file
-        split_file = os.path.join(casp_dir, f'{self.split}.txt')
-        if not os.path.exists(split_file):
-            # List available files
+        # Look for the split file (without .txt extension)
+        split_file_path = os.path.join(casp_dir, self.split)
+        
+        # Check if the expected split file exists
+        if not os.path.exists(split_file_path):
+            # List available files in the CASP directory
             available = os.listdir(casp_dir)
-            print(f"Available splits: {[f for f in available if f.endswith('.txt')]}")
-            # Use the first training file found
-            training_files = [f for f in available if 'training' in f and f.endswith('.txt')]
-            if training_files:
-                split_file = os.path.join(casp_dir, training_files[0])
-                print(f"Using {training_files[0]} instead")
+            # Filter for files that match the split name (e.g., 'training_95', 'validation', 'testing')
+            matching_files = [f for f in available if f == self.split]
+            
+            if matching_files:
+                # If a matching file is found, use it
+                split_file_path = os.path.join(casp_dir, matching_files[0])
+                print(f"Found matching file: {matching_files[0]}")
             else:
-                raise FileNotFoundError(f"No training files found in {casp_dir}")
+                # If no matching file found, raise error
+                raise FileNotFoundError(f"No file found for split '{self.split}' in {casp_dir}")
         
         # Parse the ProteinNet text file
-        with open(split_file, 'r') as f:
+        with open(split_file_path, 'r') as f:
             content = f.read()
         
         # Split into individual protein records
