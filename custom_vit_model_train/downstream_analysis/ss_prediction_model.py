@@ -25,7 +25,8 @@ class ProteinSSPredictor(nn.Module):
         )
         
         # Load pretrained weights
-        checkpoint = torch.load(mae_model_path, map_location='cpu')
+        # Set weights_only=False for compatibility with older checkpoint formats
+        checkpoint = torch.load(mae_model_path, map_location='cpu', weights_only=False)
         if 'model_state_dict' in checkpoint:
             self.mae.load_state_dict(checkpoint['model_state_dict'])
         else:
