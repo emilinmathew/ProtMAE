@@ -161,8 +161,8 @@ class ProteinNetDataset(Dataset):
                 continue
 
             ss_info = self.ss_annotations[pdb_id]
-            # Check if 'ss' key exists in ss_info
-            if 'ss' not in ss_info:
+            # Check if 'DSSP' key exists in ss_info
+            if 'DSSP' not in ss_info:
                 no_ss_key_count += 1
                 continue
 
@@ -188,8 +188,8 @@ class ProteinNetDataset(Dataset):
 
         print(f"Filtering complete. Total records loaded: {total_records}")
         print(f"  Passed all filters: {filtered_count}")
-        print(f"  Excluded due to no SS annotation: {no_ss_annotation_count}")
-        print(f"  Excluded due to no 'ss' key in annotation: {no_ss_key_count}")
+        print(f"  Excluded due to no DSSP annotation value: {no_ss_annotation_count}")
+        print(f"  Excluded due to no 'DSSP' key in annotation: {no_ss_key_count}")
         print(f"  Excluded due to no coordinates: {no_coordinates_count}")
         print(f"  Excluded due to coordinate length mismatch: {coord_len_mismatch_count}")
         print(f"  Excluded due to sequence length limit (> {self.max_length}): {seq_len_limit_count}")
@@ -253,7 +253,7 @@ class ProteinNetDataset(Dataset):
         # Get secondary structure labels
         pdb_id = record['id']
         ss_info = self.ss_annotations[pdb_id]
-        ss_string = ss_info['ss']  # Secondary structure string
+        ss_string = ss_info['DSSP']  # Secondary structure string
         ss_labels = self._ss_to_labels(ss_string)
         
         # Pad/crop to consistent size
