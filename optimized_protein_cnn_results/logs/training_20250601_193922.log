@@ -1,0 +1,4 @@
+2025-06-01 19:39:22,752 - INFO - Using device: cuda
+2025-06-01 19:39:22,752 - INFO - Loading datasets...
+2025-06-01 19:39:23,430 - INFO - Model created with 8029985 total parameters (8029985 trainable)
+2025-06-01 19:39:24,418 - INFO - Starting training for 50 epochs with mask ratio 0.75

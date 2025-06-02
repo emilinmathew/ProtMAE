@@ -1,0 +1,41 @@
+2025-06-01 19:48:04,427 - INFO - Using device: cuda
+2025-06-01 19:48:04,427 - INFO - Loading datasets...
+2025-06-01 19:48:05,505 - INFO - Model created with 8029985 total parameters (8029985 trainable)
+2025-06-01 19:48:06,556 - INFO - Starting training for 25 epochs with mask ratio 0.75
+2025-06-01 20:10:16,123 - INFO - Epoch 1/25 - Train Loss: 0.002042, Val Loss: 0.000460, Train MSE: 0.000162, Val MSE: 0.000023, Val SSIM Loss: 0.001459, LR: 0.001000, Time: 1329.6s, Mask Ratio: 0.500
+2025-06-01 20:10:16,291 - INFO - New best model saved with validation loss: 0.000460
+2025-06-01 20:32:13,422 - INFO - Epoch 2/25 - Train Loss: 0.000383, Val Loss: 0.000248, Train MSE: 0.000031, Val MSE: 0.000012, Val SSIM Loss: 0.000787, LR: 0.001000, Time: 1317.1s, Mask Ratio: 0.533
+2025-06-01 20:32:13,986 - INFO - New best model saved with validation loss: 0.000248
+2025-06-01 20:54:27,104 - INFO - Epoch 3/25 - Train Loss: 0.000335, Val Loss: 0.000399, Train MSE: 0.000028, Val MSE: 0.000024, Val SSIM Loss: 0.001247, LR: 0.001000, Time: 1333.1s, Mask Ratio: 0.567
+2025-06-01 21:16:39,966 - INFO - Epoch 4/25 - Train Loss: 0.000266, Val Loss: 0.000299, Train MSE: 0.000023, Val MSE: 0.000020, Val SSIM Loss: 0.000929, LR: 0.001000, Time: 1332.9s, Mask Ratio: 0.600
+2025-06-01 21:39:01,254 - INFO - Epoch 5/25 - Train Loss: 0.000232, Val Loss: 0.000162, Train MSE: 0.000021, Val MSE: 0.000009, Val SSIM Loss: 0.000512, LR: 0.001000, Time: 1341.3s, Mask Ratio: 0.633
+2025-06-01 21:39:01,838 - INFO - New best model saved with validation loss: 0.000162
+2025-06-01 22:01:24,521 - INFO - Epoch 6/25 - Train Loss: 0.000198, Val Loss: 0.000398, Train MSE: 0.000019, Val MSE: 0.000040, Val SSIM Loss: 0.001193, LR: 0.001000, Time: 1342.7s, Mask Ratio: 0.667
+2025-06-01 22:23:42,517 - INFO - Epoch 7/25 - Train Loss: 0.000186, Val Loss: 0.000191, Train MSE: 0.000018, Val MSE: 0.000020, Val SSIM Loss: 0.000570, LR: 0.001000, Time: 1338.0s, Mask Ratio: 0.700
+2025-06-01 22:45:59,630 - INFO - Epoch 8/25 - Train Loss: 0.000171, Val Loss: 0.000232, Train MSE: 0.000017, Val MSE: 0.000035, Val SSIM Loss: 0.000655, LR: 0.001000, Time: 1337.1s, Mask Ratio: 0.733
+2025-06-01 23:08:13,379 - INFO - Epoch 9/25 - Train Loss: 0.000155, Val Loss: 0.000103, Train MSE: 0.000016, Val MSE: 0.000007, Val SSIM Loss: 0.000318, LR: 0.001000, Time: 1333.7s, Mask Ratio: 0.750
+2025-06-01 23:08:13,961 - INFO - New best model saved with validation loss: 0.000103
+2025-06-01 23:30:30,998 - INFO - Epoch 10/25 - Train Loss: 0.000151, Val Loss: 0.000168, Train MSE: 0.000016, Val MSE: 0.000025, Val SSIM Loss: 0.000477, LR: 0.001000, Time: 1337.0s, Mask Ratio: 0.750
+2025-06-01 23:52:46,188 - INFO - Epoch 11/25 - Train Loss: 0.000142, Val Loss: 0.000167, Train MSE: 0.000015, Val MSE: 0.000013, Val SSIM Loss: 0.000516, LR: 0.001000, Time: 1335.0s, Mask Ratio: 0.750
+2025-06-02 00:15:03,934 - INFO - Epoch 12/25 - Train Loss: 0.000139, Val Loss: 0.000121, Train MSE: 0.000015, Val MSE: 0.000015, Val SSIM Loss: 0.000352, LR: 0.001000, Time: 1337.7s, Mask Ratio: 0.750
+2025-06-02 00:37:19,867 - INFO - Epoch 13/25 - Train Loss: 0.000135, Val Loss: 0.000103, Train MSE: 0.000015, Val MSE: 0.000006, Val SSIM Loss: 0.000324, LR: 0.001000, Time: 1335.9s, Mask Ratio: 0.750
+2025-06-02 00:59:36,877 - INFO - Epoch 14/25 - Train Loss: 0.000131, Val Loss: 0.000104, Train MSE: 0.000014, Val MSE: 0.000006, Val SSIM Loss: 0.000329, LR: 0.001000, Time: 1337.0s, Mask Ratio: 0.750
+2025-06-02 01:21:52,476 - INFO - Epoch 15/25 - Train Loss: 0.000128, Val Loss: 0.000084, Train MSE: 0.000014, Val MSE: 0.000005, Val SSIM Loss: 0.000264, LR: 0.001000, Time: 1335.6s, Mask Ratio: 0.750
+2025-06-02 01:21:53,050 - INFO - New best model saved with validation loss: 0.000084
+2025-06-02 01:44:09,304 - INFO - Epoch 16/25 - Train Loss: 0.000125, Val Loss: 0.000104, Train MSE: 0.000014, Val MSE: 0.000011, Val SSIM Loss: 0.000312, LR: 0.001000, Time: 1336.3s, Mask Ratio: 0.750
+2025-06-02 02:06:16,601 - INFO - Epoch 17/25 - Train Loss: 0.000122, Val Loss: 0.000099, Train MSE: 0.000014, Val MSE: 0.000008, Val SSIM Loss: 0.000305, LR: 0.001000, Time: 1327.3s, Mask Ratio: 0.750
+2025-06-02 02:28:21,757 - INFO - Epoch 18/25 - Train Loss: 0.000114, Val Loss: 0.000088, Train MSE: 0.000013, Val MSE: 0.000005, Val SSIM Loss: 0.000276, LR: 0.001000, Time: 1325.2s, Mask Ratio: 0.750
+2025-06-02 02:50:27,997 - INFO - Epoch 19/25 - Train Loss: 0.000114, Val Loss: 0.000063, Train MSE: 0.000013, Val MSE: 0.000003, Val SSIM Loss: 0.000200, LR: 0.001000, Time: 1326.2s, Mask Ratio: 0.750
+2025-06-02 02:50:28,565 - INFO - New best model saved with validation loss: 0.000063
+2025-06-02 03:12:37,418 - INFO - Epoch 20/25 - Train Loss: 0.000113, Val Loss: 0.000113, Train MSE: 0.000013, Val MSE: 0.000018, Val SSIM Loss: 0.000319, LR: 0.001000, Time: 1328.9s, Mask Ratio: 0.750
+2025-06-02 03:34:49,961 - INFO - Epoch 21/25 - Train Loss: 0.000109, Val Loss: 0.000111, Train MSE: 0.000013, Val MSE: 0.000007, Val SSIM Loss: 0.000348, LR: 0.001000, Time: 1332.4s, Mask Ratio: 0.750
+2025-06-02 03:57:07,428 - INFO - Epoch 22/25 - Train Loss: 0.000110, Val Loss: 0.000104, Train MSE: 0.000013, Val MSE: 0.000013, Val SSIM Loss: 0.000302, LR: 0.001000, Time: 1337.5s, Mask Ratio: 0.750
+2025-06-02 04:19:22,480 - INFO - Epoch 23/25 - Train Loss: 0.000107, Val Loss: 0.000080, Train MSE: 0.000012, Val MSE: 0.000009, Val SSIM Loss: 0.000239, LR: 0.001000, Time: 1335.1s, Mask Ratio: 0.750
+2025-06-02 04:41:31,462 - INFO - Epoch 24/25 - Train Loss: 0.000101, Val Loss: 0.000104, Train MSE: 0.000012, Val MSE: 0.000006, Val SSIM Loss: 0.000325, LR: 0.001000, Time: 1329.0s, Mask Ratio: 0.750
+2025-06-02 05:03:42,427 - INFO - Epoch 25/25 - Train Loss: 0.000100, Val Loss: 0.000077, Train MSE: 0.000012, Val MSE: 0.000005, Val SSIM Loss: 0.000239, LR: 0.000500, Time: 1331.0s, Mask Ratio: 0.750
+2025-06-02 05:03:44,715 - INFO - Evaluating on test set...
+2025-06-02 05:05:55,353 - INFO - Training completed!
+2025-06-02 05:05:55,353 - INFO - Best validation loss: 0.000063
+2025-06-02 05:05:55,353 - INFO - Test MSE: 0.000005
+2025-06-02 05:05:55,353 - INFO - Test SSIM: 0.999762
+2025-06-02 05:05:55,353 - INFO - Average reconstruction time: 0.01 ms
