@@ -1,2 +1,9 @@
 custom_vit_model_train/downstream_analysis/best_ss_model.pth
-proteinnet_data/ 
+proteinnet_data/
+
+# Ignore trained models
+*.pth
+
+# Ignore specific files within the results directory
+optimized_protein_cnn_results/*.json
+optimized_protein_cnn_results/*.md 
