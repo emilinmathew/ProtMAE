@@ -9,18 +9,17 @@ import numpy as np
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
 import sys
-sys.path.append('..')  # Add parent directory to Python path
+sys.path.append('..')
 from protein_fragment_class import get_dataloaders
-# import wandb  # Optional: for experiment tracking
 
-# Import our custom MAE model
+
+#here we get the mae
 from custom_Vit import (
     ProteinDistanceMAE, ProteinMAELoss, 
     create_optimizer, cosine_scheduler
 )
 
 def check_cuda_availability():
-    """Check CUDA availability and print detailed information"""
     print("\n=== CUDA Availability Check ===")
     print(f"PyTorch version: {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
@@ -67,12 +66,11 @@ def train_protein_mae(
     num_workers=4,
     pin_memory=True
 ):
-    """Train the Protein Distance MAE model"""
     
     # Check CUDA availability first
     check_cuda_availability()
     
-    # Setup
+    #Setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
@@ -82,7 +80,7 @@ def train_protein_mae(
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
-    # Initialize wandb if requested
+    #use wandb if requested, i get some nice graphs using this
     if use_wandb:
         import wandb
         wandb.init(project="protein-mae", config={
@@ -93,18 +91,17 @@ def train_protein_mae(
             "architecture": "ProteinDistanceMAE"
         })
     
-    # Define split files
+    #splits
     split_files = {
         'train': './splits/train.txt',
         'val': './splits/val.txt',
         'test': './splits/test.txt'
     }
     
-    # Get dataloaders
+    #et dataloaders
     print("Loading datasets...")
     dataloaders = get_dataloaders(data_dir, batch_size=batch_size, split_files=split_files, num_workers=num_workers, pin_memory=pin_memory)
     
-    # Create model
     model = ProteinDistanceMAE(
         img_size=64,
         patch_size=4,
@@ -118,17 +115,17 @@ def train_protein_mae(
     
     print(f"Model created with {sum(p.numel() for p in model.parameters())} parameters")
     
-    # Print GPU stats after model creation
+    
     print("\nGPU stats after model creation:")
     print_gpu_utilization()
     
-    # Loss function
+    # loss
     criterion = ProteinMAELoss(smoothness_weight=0.1, symmetry_weight=0.1)
     
     # Optimizer with cosine LR schedule
     optimizer = create_optimizer(model, lr=learning_rate, weight_decay=0.05)
     
-    # Learning rate schedule
+    #learning rate schedule
     num_training_steps = epochs * len(dataloaders['train'])
     lr_schedule = cosine_scheduler(
         learning_rate, 
@@ -138,7 +135,7 @@ def train_protein_mae(
         warmup_epochs=warmup_epochs
     )
     
-    # Mask ratio schedule (optional progressive masking)
+    #progressive masking
     if mask_ratio_schedule is None:
         # Default: start with less masking, gradually increase
         mask_ratio_schedule = np.linspace(0.5, mask_ratio, epochs)
@@ -583,17 +580,8 @@ if __name__ == "__main__":
         'pin_memory': True
     }
     
-    # --- Uncomment ONE of the following blocks --- #
-
-    # Option 1: Train the model
+   
     model, history, test_metrics = train_protein_mae(**config)
     compare_with_baselines(test_metrics, config['output_dir'])
     
-    # Option 2: Analyze a trained model checkpoint
-    # checkpoint_path = os.path.join(config['output_dir'], 'best_model.pth') # Or 'final_model.pth'
-    # if os.path.exists(checkpoint_path):
-    #     analyze_model_visualizations(checkpoint_path, **config) # Pass config to reuse settings
-    # else:
-    #     print(f"Error: Checkpoint not found at {checkpoint_path}")
     
-    print("\nScript execution complete!")
