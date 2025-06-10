@@ -13,9 +13,7 @@ import logging
 from datetime import datetime
 from protein_fragment_class import get_dataloaders
 
-# Set up logging
 def setup_logging(output_dir):
-    """Setup comprehensive logging"""
     log_dir = os.path.join(output_dir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
     
@@ -33,12 +31,9 @@ def setup_logging(output_dir):
     return logging.getLogger(__name__)
 
 class ProteinDistanceMapCNN(nn.Module):
-    """Optimized CNN for protein distance map reconstruction with protein-specific features"""
-    
     def __init__(self, base_channels=32):
         super(ProteinDistanceMapCNN, self).__init__()
-        
-        # Symmetric convolution block for distance maps
+    
         def conv_block(in_ch, out_ch, kernel_size=3, stride=1, padding=1):
             return nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size, stride, padding, bias=False),
@@ -49,23 +44,20 @@ class ProteinDistanceMapCNN(nn.Module):
                 nn.ReLU(inplace=True)
             )
         
-        # Encoder with skip connections and progressive downsampling
-        self.encoder1 = conv_block(1, base_channels)  # 64x64
+        self.encoder1 = conv_block(1, base_channels)  
         self.pool1 = nn.MaxPool2d(2, 2)
         
-        self.encoder2 = conv_block(base_channels, base_channels*2)  # 32x32
+        self.encoder2 = conv_block(base_channels, base_channels*2)  
         self.pool2 = nn.MaxPool2d(2, 2)
         
-        self.encoder3 = conv_block(base_channels*2, base_channels*4)  # 16x16
+        self.encoder3 = conv_block(base_channels*2, base_channels*4)  
         self.pool3 = nn.MaxPool2d(2, 2)
         
-        self.encoder4 = conv_block(base_channels*4, base_channels*8)  # 8x8
+        self.encoder4 = conv_block(base_channels*4, base_channels*8)
         self.pool4 = nn.MaxPool2d(2, 2)
         
-        # Bottleneck with attention mechanism for long-range dependencies
-        self.bottleneck = conv_block(base_channels*8, base_channels*16)  # 4x4
+        self.bottleneck = conv_block(base_channels*8, base_channels*16) 
         
-        # Attention module (separate from bottleneck)
         self.attention = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(base_channels*16, base_channels*8, 1),
@@ -73,8 +65,7 @@ class ProteinDistanceMapCNN(nn.Module):
             nn.Conv2d(base_channels*8, base_channels*16, 1),
             nn.Sigmoid()
         )
-        
-        # Decoder with skip connections
+    
         self.upconv4 = nn.ConvTranspose2d(base_channels*16, base_channels*8, 2, 2)
         self.decoder4 = conv_block(base_channels*16, base_channels*8)
         
@@ -86,8 +77,7 @@ class ProteinDistanceMapCNN(nn.Module):
         
         self.upconv1 = nn.ConvTranspose2d(base_channels*2, base_channels, 2, 2)
         self.decoder1 = conv_block(base_channels*2, base_channels)
-        
-        # Final output layer with symmetric constraint
+
         self.final_conv = nn.Sequential(
             nn.Conv2d(base_channels, base_channels//2, 3, 1, 1),
             nn.ReLU(inplace=True),
@@ -95,11 +85,9 @@ class ProteinDistanceMapCNN(nn.Module):
             nn.Sigmoid()
         )
         
-        # Dropout for regularization
         self.dropout = nn.Dropout2d(0.1)
         
     def forward(self, x):
-        # Encoder path with skip connections
         enc1 = self.encoder1(x)
         enc1_pool = self.pool1(enc1)
         
@@ -112,14 +100,11 @@ class ProteinDistanceMapCNN(nn.Module):
         enc4 = self.encoder4(enc3_pool)
         enc4_pool = self.pool4(enc4)
         
-        # Bottleneck with attention
         bottleneck = self.bottleneck(enc4_pool)
         
-        # Apply attention
         attention_weights = self.attention(bottleneck)
         bottleneck = bottleneck * attention_weights
-        
-        # Decoder path with skip connections
+
         dec4 = self.upconv4(bottleneck)
         dec4 = torch.cat([dec4, enc4], dim=1)
         dec4 = self.decoder4(dec4)
@@ -138,21 +123,15 @@ class ProteinDistanceMapCNN(nn.Module):
         dec1 = torch.cat([dec1, enc1], dim=1)
         dec1 = self.decoder1(dec1)
         
-        # Final output
         output = self.final_conv(dec1)
-        
-        # Enforce symmetry for distance maps
         output = self.enforce_symmetry(output)
         
         return output
     
     def enforce_symmetry(self, x):
-        """Enforce symmetry constraint for distance maps"""
         return (x + x.transpose(-1, -2)) / 2
 
 class ProteinSpecificLoss(nn.Module):
-    """Custom loss function for protein distance maps"""
-    
     def __init__(self, mse_weight=1.0, ssim_weight=0.3, symmetry_weight=0.1):
         super().__init__()
         self.mse_weight = mse_weight
@@ -161,10 +140,7 @@ class ProteinSpecificLoss(nn.Module):
         self.mse_loss = nn.MSELoss()
         
     def forward(self, pred, target):
-        # MSE loss
         mse = self.mse_loss(pred, target)
-        
-        # SSIM loss (batch-wise)
         ssim_loss = 0
         for i in range(pred.size(0)):
             pred_np = pred[i, 0].detach().cpu().numpy()
@@ -173,7 +149,6 @@ class ProteinSpecificLoss(nn.Module):
             ssim_loss += (1 - ssim_val)
         ssim_loss /= pred.size(0)
         
-        # Symmetry loss
         pred_T = pred.transpose(-1, -2)
         symmetry_loss = self.mse_loss(pred, pred_T)
         
@@ -184,13 +159,11 @@ class ProteinSpecificLoss(nn.Module):
         return total_loss, mse, ssim_loss, symmetry_loss
 
 def create_protein_mask(distance_map, mask_ratio=0.75, mask_type='structured'):
-    """Create protein-aware masks"""
     batch_size, channels, height, width = distance_map.shape
     mask = torch.ones_like(distance_map)
     
     for b in range(batch_size):
         if mask_type == 'structured':
-            # Create structured masks that respect protein geometry
             num_blocks = int(np.sqrt(mask_ratio * height * width / 64))
             for _ in range(num_blocks):
                 block_size = np.random.randint(4, 12)
@@ -199,17 +172,15 @@ def create_protein_mask(distance_map, mask_ratio=0.75, mask_type='structured'):
                 mask[b, :, start_i:start_i+block_size, start_j:start_j+block_size] = 0
         
         elif mask_type == 'diagonal_aware':
-            # Mask while preserving some diagonal information
             flat_mask = torch.rand(height * width) > mask_ratio
             flat_mask = flat_mask.view(height, width)
-            # Preserve diagonal with some probability
             diagonal_preserve = torch.rand(min(height, width)) > 0.5
             for i in range(min(height, width)):
                 if diagonal_preserve[i]:
                     flat_mask[i, i] = True
             mask[b, 0] = flat_mask.float()
         
-        else:  # random
+        else:
             flat_mask = torch.rand(height * width) > mask_ratio
             mask[b, 0] = flat_mask.view(height, width).float()
     
@@ -217,38 +188,31 @@ def create_protein_mask(distance_map, mask_ratio=0.75, mask_type='structured'):
 
 def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32, 
                                learning_rate=0.001, mask_ratio=0.75):
-    """Train optimized protein distance map CNN"""
-    
-    # Setup
     os.makedirs(output_dir, exist_ok=True)
     logger = setup_logging(output_dir)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
-    
-    # Define split files
     split_files = {
         'train': './splits/train.txt',
         'val': './splits/val.txt',
         'test': './splits/test.txt'
     }
-    
-    # Get dataloaders
+
     logger.info("Loading datasets...")
     dataloaders = get_dataloaders(data_dir, batch_size=batch_size, split_files=split_files)
     
-    # Create model
+    #create model 
     model = ProteinDistanceMapCNN(base_channels=32).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Model created with {total_params} total parameters ({trainable_params} trainable)")
     
-    # Loss function and optimizer with scheduling
+    #loss function and optimizer with scheduling
     criterion = ProteinSpecificLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, 
                                                     factor=0.5)
     
-    # Training metrics tracking
     metrics = {
         'train_losses': [], 'val_losses': [], 'train_mse': [], 'val_mse': [],
         'train_ssim': [], 'val_ssim': [], 'train_symmetry': [], 'val_symmetry': [],
@@ -262,52 +226,43 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
     
     for epoch in range(epochs):
         epoch_start_time = time.time()
-        
-        # Progressive mask ratio (start easier, get harder)
         current_mask_ratio = min(mask_ratio, 0.5 + (mask_ratio - 0.5) * epoch / (epochs * 0.3))
-        
-        # Training phase
         model.train()
         train_metrics = {'total_loss': 0, 'mse': 0, 'ssim': 0, 'symmetry': 0, 'count': 0}
         
         for batch in tqdm(dataloaders['train'], desc=f"Epoch {epoch+1}/{epochs} (Train)"):
             distance_maps = batch['distance_map'].to(device)
             
-            # Create protein-aware masks
+            #protein-aware masks
             mask = create_protein_mask(distance_maps, current_mask_ratio, 'structured')
             masked_input = distance_maps * mask.to(device)
             
-            # Forward pass
+            #forward pass:
             optimizer.zero_grad()
             reconstructions = model(masked_input)
             total_loss, mse_loss, ssim_loss, symmetry_loss = criterion(reconstructions, distance_maps)
             
-            # Backward pass
+            #backward pass:
             total_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             
-            # Update metrics
             train_metrics['total_loss'] += total_loss.item()
             train_metrics['mse'] += mse_loss.item()
             train_metrics['ssim'] += ssim_loss
             train_metrics['symmetry'] += symmetry_loss.item()
             train_metrics['count'] += 1
-        
-        # Average training metrics
+
         for key in train_metrics:
             if key != 'count':
                 train_metrics[key] /= train_metrics['count']
         
-        # Validation phase
         model.eval()
         val_metrics = {'total_loss': 0, 'mse': 0, 'ssim': 0, 'symmetry': 0, 'count': 0}
         
         with torch.no_grad():
             for batch in tqdm(dataloaders['val'], desc=f"Epoch {epoch+1}/{epochs} (Val)"):
                 distance_maps = batch['distance_map'].to(device)
-                
-                # Create masks for validation
                 mask = create_protein_mask(distance_maps, mask_ratio, 'structured')
                 masked_input = distance_maps * mask.to(device)
                 
@@ -319,17 +274,13 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
                 val_metrics['ssim'] += ssim_loss
                 val_metrics['symmetry'] += symmetry_loss.item()
                 val_metrics['count'] += 1
-        
-        # Average validation metrics
+    
         for key in val_metrics:
             if key != 'count':
                 val_metrics[key] /= val_metrics['count']
-        
-        # Update learning rate
         scheduler.step(val_metrics['total_loss'])
         current_lr = optimizer.param_groups[0]['lr']
-        
-        # Record metrics
+
         epoch_time = time.time() - epoch_start_time
         metrics['train_losses'].append(train_metrics['total_loss'])
         metrics['val_losses'].append(val_metrics['total_loss'])
@@ -341,8 +292,7 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
         metrics['val_symmetry'].append(val_metrics['symmetry'])
         metrics['learning_rates'].append(current_lr)
         metrics['epoch_times'].append(epoch_time)
-        
-        # Log progress
+    
         logger.info(f"Epoch {epoch+1}/{epochs} - "
                    f"Train Loss: {train_metrics['total_loss']:.6f}, "
                    f"Val Loss: {val_metrics['total_loss']:.6f}, "
@@ -353,7 +303,6 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
                    f"Time: {epoch_time:.1f}s, "
                    f"Mask Ratio: {current_mask_ratio:.3f}")
         
-        # Save best model
         if val_metrics['total_loss'] < best_val_loss:
             best_val_loss = val_metrics['total_loss']
             patience_counter = 0
@@ -369,12 +318,11 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
         else:
             patience_counter += 1
         
-        # Early stopping
+        #early stopping
         if patience_counter >= 10:
             logger.info(f"Early stopping triggered after {epoch+1} epochs")
             break
-        
-        # Save checkpoint every 10 epochs
+
         if (epoch + 1) % 10 == 0:
             checkpoint_path = os.path.join(output_dir, f'checkpoint_epoch_{epoch+1}.pth')
             torch.save({
@@ -385,22 +333,17 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
                 'metrics': metrics
             }, checkpoint_path)
     
-    # Save final model and metrics
     torch.save(model.state_dict(), os.path.join(output_dir, 'final_model.pth'))
     
-    # Save training metrics
     with open(os.path.join(output_dir, 'training_metrics.json'), 'w') as f:
         json.dump(metrics, f, indent=2)
     
-    # Create comprehensive plots
     create_training_plots(metrics, output_dir)
     
-    # Evaluate on test set
     logger.info("Evaluating on test set...")
     test_metrics = evaluate_comprehensive(model, dataloaders['test'], device, criterion, 
                                         output_dir, mask_ratio)
     
-    # Save test results
     with open(os.path.join(output_dir, 'test_results.json'), 'w') as f:
         json.dump(test_metrics, f, indent=2)
     
@@ -413,7 +356,6 @@ def train_optimized_protein_cnn(data_dir, output_dir, epochs=50, batch_size=32,
     return model, metrics, test_metrics
 
 def evaluate_comprehensive(model, dataloader, device, criterion, output_dir, mask_ratio):
-    """Comprehensive evaluation with detailed metrics and visualizations"""
     model.eval()
     
     all_metrics = {
@@ -421,7 +363,6 @@ def evaluate_comprehensive(model, dataloader, device, criterion, output_dir, mas
         'reconstruction_times': [], 'ssim_scores': []
     }
     
-    # For visualization samples
     sample_originals = []
     sample_reconstructions = []
     sample_masks = []
@@ -431,11 +372,12 @@ def evaluate_comprehensive(model, dataloader, device, criterion, output_dir, mas
         for i, batch in enumerate(tqdm(dataloader, desc="Evaluating")):
             distance_maps = batch['distance_map'].to(device)
             
-            # Create masks
+
+            
             mask = create_protein_mask(distance_maps, mask_ratio, 'structured')
             masked_input = distance_maps * mask.to(device)
             
-            # Time reconstruction
+
             start_time = time.time()
             reconstructions = model(masked_input)
             end_time = time.time()

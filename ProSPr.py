@@ -1,28 +1,17 @@
 from prospr.nn import ProsprNetwork, load_model
 
-# Load the pre-trained ProSPr model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = ProsprNetwork().to(device)  # Initialize the ProSPr model
+model = ProsprNetwork().to(device) 
 
-# Path to the pre-trained weights file
-weights_path = './prospr/pretrained_weights.pth'  # Replace with the actual path to the weights file
+weights_path = './prospr/pretrained_weights.pth' 
 
-# Load the weights into the model
 load_model(model, weights_path)
-model.eval()  # Set the model to evaluation mode
+model.eval()  
 print("ProSPr model loaded successfully.")
 
 from prospr.dataloader import get_tensors
 
 def preprocess_distance_maps(distance_map):
-    """
-    Preprocess a distance map to match ProSPr's input format.
-    Args:
-        distance_map (numpy.ndarray): The distance map to preprocess.
-    Returns:
-        torch.Tensor: The preprocessed tensor.
-    """
-    # Convert the distance map to the required tensor format
     tensors = get_tensors(distance_map)
     return tensors
 
@@ -36,41 +25,30 @@ from prospr.nn import load_model
 from prospr.dataloader import get_tensors
 
 def evaluate_prospr_model(distance_maps, output_dir='./benchmark_results_prospr'):
-    """
-    Evaluate the ProSPr model on a dataset of distance maps.
-    Args:
-        distance_maps (list of numpy.ndarray): List of distance maps to evaluate.
-        output_dir (str): Directory to save the evaluation results.
-    """
-    # Setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Load the ProSPr model
+
     model = load_model().to(device)
     model.eval()
     print("ProSPr model loaded successfully.")
-    
-    # Evaluation metrics
     criterion = torch.nn.MSELoss()
     test_losses = []
     
     print("Evaluating ProSPr model...")
     with torch.no_grad():
         for i, distance_map in enumerate(tqdm(distance_maps)):
-            # Preprocess the distance map
+            #preprocessing for the dist maps 
             tensors = get_tensors(distance_map)
-            input_tensor = tensors['input'].to(device)  # Input tensor
-            target_tensor = tensors['target'].to(device)  # Target tensor
+            input_tensor = tensors['input'].to(device) 
+            target_tensor = tensors['target'].to(device)  
             
-            # Forward pass
+            #forwad pass: 
             output = model(input_tensor)
             
-            # Compute loss
+            #loss calc: 
             loss = criterion(output, target_tensor)
             test_losses.append(loss.item())
-            
-            # Save visualization for the first few samples
+
             if i < 5:
                 visualize_reconstruction(output, target_tensor, i, output_dir)
     
@@ -78,14 +56,6 @@ def evaluate_prospr_model(distance_maps, output_dir='./benchmark_results_prospr'
     print(f"Average Test Loss: {avg_test_loss:.4f}")
 
 def visualize_reconstruction(output, target, idx, output_dir):
-    """
-    Visualize the original and reconstructed distance maps.
-    Args:
-        output (torch.Tensor): The reconstructed distance map.
-        target (torch.Tensor): The original distance map.
-        idx (int): Index of the sample.
-        output_dir (str): Directory to save the visualization.
-    """
     output = output.cpu().numpy()
     target = target.cpu().numpy()
     
@@ -102,10 +72,6 @@ def visualize_reconstruction(output, target, idx, output_dir):
     plt.savefig(os.path.join(output_dir, f'reconstruction_{idx}.png'))
     plt.close()
 
-# Example usage
 if __name__ == '__main__':
-    # Example: Load your dataset of distance maps
-    distance_maps = [np.random.rand(64, 64) for _ in range(10)]  # Replace with your actual dataset
-    
-    # Evaluate the ProSPr model
+    distance_maps = [np.random.rand(64, 64) for _ in range(10)]  
     evaluate_prospr_model(distance_maps)
