@@ -6,24 +6,25 @@ from torch.utils.data import Dataset, DataLoader
 import re
 
 class ProteinNetDataset(Dataset):
-    """Dataset for loading ProteinNet data with secondary structure labels"""
+
+    #dataset to load protein net that includes secodary structure labels
     
     def __init__(self, data_dir='proteinnet_data', split='training_95', max_length=64):
         self.data_dir = data_dir
         self.split = split
         self.max_length = max_length
         
-        # Load secondary structure annotations
-        print("Loading secondary structure annotations...")
+        #get secondary structure annotations
+        print(" secondary structure loadin......")
         with open(os.path.join(data_dir, 'dssp_annotations.json'), 'r') as f:
             self.ss_annotations = json.load(f)
         
-        # Load ProteinNet records
-        print(f"Loading {split} data...")
+        #ProteinNet records
+        print(f"Loading {split} data.....")
         self.records = self._load_proteinnet_records()
         
-        # Filter records that have both distance maps and SS annotations
-        print("Filtering records with both distance maps and SS annotations...")
+        #filter records based on those hjaving both distance maps and SS annotations
+        print("Filtering records with both distance maps and SS annotations......")
         self.filtered_records = self._filter_records()
         
         print(f"Loaded {len(self.filtered_records)} protein records")
@@ -42,34 +43,26 @@ class ProteinNetDataset(Dataset):
         if not casp_dir:
             raise FileNotFoundError("Could not find CASP directory")
         
-        # Look for the split file (without .txt extension)
         split_file_path = os.path.join(casp_dir, self.split)
         
         print(f"Looking for split file: {split_file_path}")
-        # Check if the expected split file exists
         if not os.path.exists(split_file_path):
-            # List available files in the CASP directory
             print(f"Split file not found. Listing available files in {casp_dir}:")
             available = os.listdir(casp_dir)
             print(f"Available files: {available}")
-            # Filter for files that match the split name (e.g., 'training_95', 'validation', 'testing')
             matching_files = [f for f in available if f == self.split]
             
             if matching_files:
-                # If a matching file is found, use it
                 split_file_path = os.path.join(casp_dir, matching_files[0])
                 print(f"Found matching file: {matching_files[0]}. Using this path: {split_file_path}")
             else:
-                # If no matching file found, raise error
                 raise FileNotFoundError(f"No file found for split '{self.split}' in {casp_dir}")
         
         print(f"Reading content from {split_file_path}...")
-        # Parse the ProteinNet text file
         with open(split_file_path, 'r') as f:
             content = f.read()
         print(f"Finished reading file. Content length: {len(content)}")
         
-        # Split into individual protein records
         print("Splitting content by [ID]...")
         protein_records = content.split('[ID]')
         print(f"Split into {len(protein_records)} potential records.")
@@ -78,7 +71,7 @@ class ProteinNetDataset(Dataset):
              print("Warning: No [ID] found in the file content. Parsing may fail.")
 
         print("Parsing individual records...")
-        for i, record in enumerate(protein_records[1:]):  # Skip first empty split
+        for i, record in enumerate(protein_records[1:]):  #skip first empty split
             if not record.strip():
                 print(f"Skipping empty record block {i+1}")
                 continue
@@ -86,11 +79,9 @@ class ProteinNetDataset(Dataset):
             lines = record.strip().split('\n')
             protein_id = lines[0].strip()
             
-            # Extract relevant information
             protein_data = {'id': protein_id}
             
-            # Add print to show which records are being processed and if primary/tertiary sections are found
-            # print(f"  Processing record {i+1}: ID = {protein_id}")
+           
             
             i_line = 1
             while i_line < len(lines):
@@ -114,8 +105,7 @@ class ProteinNetDataset(Dataset):
                                 coord_lines_found += 1
                             except ValueError:
                                 print(f"    Warning: Could not parse coordinates in record {protein_id} at line {i_line+1}")
-                                # Decide how to handle parsing errors - skip record or continue?
-                                # For now, we'll just print a warning.
+                                
                         i_line += 1
                     protein_data['coordinates'] = coords
                     # print(f"    Found [TERTIARY] for {protein_id} with {len(coords)} coordinates from {coord_lines_found} lines")
